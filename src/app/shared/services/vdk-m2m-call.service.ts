@@ -3,14 +3,12 @@ import { StorageService } from './storage.service';
 declare const CVDOTOK: any;
 
 @Injectable()
-export class VdkCallService {
+export class VdkM2MCallService {
   @Output() public Client: any;
-
-  constructor() {
-  }
+  constructor() { }
 
   public initConfigure(): void {
-    this.Client = new CVDOTOK.Client({
+    this.Client = new CVDOTOK.ManyToMany({
       projectID: "15Q89R",
       secret: "3d9686b635b15b5bc2d19800407609fa",
     });
@@ -21,35 +19,18 @@ export class VdkCallService {
         user.authorization_token.toString()
       );
     });
-    console.error("initConfigure",this.Client);
   }
 
-  public Disconnect(): void {
-    // this.Client.Disconnect();
+  groupCall(params): void {
+    this.Client.GroupCall(params);
   }
 
-  Call(params): void {
-    this.Client.Call(params);
+  joinGroupCall(params): void {
+    this.Client.JoinGroupCall(params);
   }
 
-  audioCall(params): void {
-    this.Client.AudioCall(params);
-  }
-
-  acceptCall(local, remote): void {
-    this.Client.AcceptCall(local, remote);
-  }
-
-  rejectCall(): void {
-    this.Client.RejectCall();
-  }
-
-  endCall(): void {
-    this.Client.EndCall();
-  }
-
-  cancelCall(): void {
-    this.Client.CancelCall();
+  leaveGroupCall(): void {
+    this.Client.LeaveGroupCall();
   }
 
   setCameraOn(): void {
@@ -66,18 +47,6 @@ export class VdkCallService {
 
   setMicUnmute(): void {
     this.Client.SetMicUnmute();
-  }
-
-  groupCall(params): void {
-    this.Client.GroupCall(params);
-  }
-
-  joinGroupCall(params): void {
-    this.Client.JoinGroupCall(params);
-  }
-
-  leaveGroupCall(): void {
-    this.Client.LeaveGroupCall();
   }
 
   setParticipantVideo(participant, vidio) {

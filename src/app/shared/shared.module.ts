@@ -14,6 +14,7 @@ import { filterPipe } from './pipe/filter';
 import { SafeUrlPipe } from './pipe/safeurl';
 import { VdkCallService } from './services/vdk-call.service';
 import { FormatTimePipe } from './pipe/formatTime';
+import { VdkM2MCallService } from './services/vdk-m2m-call.service';
 
 const components = [
   GetErrorsComponent,
@@ -36,6 +37,7 @@ const components = [
     BaseService,
     PubsubService,
     VdkCallService,
+    VdkM2MCallService,
     { provide: MAT_DIALOG_DEFAULT_OPTIONS, useValue: { hasBackdrop: false } },
     { provide: HTTP_INTERCEPTORS, useClass: HttpService, multi: true },
   ],
