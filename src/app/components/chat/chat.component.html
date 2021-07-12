@@ -1,0 +1,398 @@
+<div class="row dashboardContainer">
+  <!-- popup end -->
+  <div class="col-sm-4 leftSide" [hidden]="isHideThread()">
+    <div class="leftSideHeader">
+      <img src="./assets/images/logo2.png" class="dashboardLogo" />
+    </div>
+    <div class="leftSideListContainer">
+
+      <ng-container *ngIf="threadType === 'THREAD'">
+        <div style="align-items: center; margin:0px" class="leftSectionHeader">
+          <h4 class="leftHeading">CHATROOMS</h4>
+          <h4 class="createText" (click)="newChat()">Create +</h4>
+        </div>
+        <!-- empty chats section start-->
+        <div class="leftSectionEmptyContainer" *ngIf="!AllGroups.length && !loading">
+          <p class="noAvailableText">No Available ChatRoom</p>
+          <p class="tapText">Tap and hold on any message to star it, so you can easily find it later.</p>
+        </div>
+        <!-- empty chats section end-->
+
+        <div class="listingContainer fullHeight">
+          <div class="chatListContainer noHorizontalPadding">
+            <ng-container *ngFor="let group of AllGroups">
+              <div class="chatsCardContainer hand" (click)="setActiveChat(group)">
+                <div class="chatsCardLeft">
+                  <div class="chatsNameWrap">
+                    <p class="chatName text-capitalize">{{group.chatTitle}}</p>
+                    <span class="unreadBadge" *ngIf="group.unReadCount"> {{group.unReadCount}}</span>
+                  </div>
+                  <p class="misreadMsg" *ngIf="group.userTyping">{{group?.userTypingContent}}</p>
+
+                  <p class="misreadMsg text-capitalize" *ngIf="!group.userTyping"
+                    [ngClass]="group.unReadCount ? 'misreadMsg':'readMsg'">
+                    {{ getLastMessage(group) }}
+                  </p>
+
+                </div>
+                <div class="chatsCardRight mr-1">
+                  <div class="dropdown mt-1" style="align-self: flex-end">
+                    <img src="./assets/images/more.png" class="moreIcon" />
+                    <div class="dropdown-content">
+                      <a class="edit" (click)="openModal(group)">EDIT GROUP NAME</a>
+                      <a class="delete" (click)="deleteGroup(group)">DELETE</a>
+                    </div>
+                  </div>
+                  <p [ngClass]="group.Online ? 'cardOnlineStatus' :'cardOfflineStatus'" *ngIf="group.auto_created">
+                    {{group.Online
+                    ?
+                    'Online' :'Offline'}}
+                  </p>
+                  <p class="cardOnlineStatus" *ngIf="!group.auto_created">
+                    {{ group.onlineParticipants + '/' + group.TotalParticipants }} Online
+
+                  </p>
+
+                </div>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+
+      </ng-container>
+
+      <ng-container *ngIf="threadType === 'GROUP'">
+        <add-group (setActiveChat)="setchat($event)" (changeEvent)="changeSidebar($event)"></add-group>
+      </ng-container>
+
+      <ng-container *ngIf="threadType === 'CHAT'">
+        <new-chat (setActiveChat)="setchat($event)" (changeEvent)="changeSidebar($event)"></new-chat>
+      </ng-container>
+
+
+    </div>
+    <div class="leftSideFooter">
+      <div class="logoutContainer" (click)="logout()">
+        <img src="./assets/images/log-out.png" class="logoutLogo" />
+        <span class="logoutText">LOG OUT {{currentUserData.full_name}}</span>
+        <span class="ml-1" [ngClass]="sdkconnected ? 'online' :'offline' "></span>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-8 rightSide" [hidden]="isHideChatScreen()">
+    <div class="rightSideHeader alignBottom chatholder">
+      <div class="d-flex">
+        <div style="display: flex;flex-direction: row;align-items: center">
+          <img src="./assets/images/arrow-left.png" class="arrowLeft hand" (click)="backScreen()" *ngIf="isMobile()" />
+          <p class="roomNameText text-capitalize" *ngIf="activeChat.chatTitle">{{activeChat.chatTitle}}
+          </p>
+
+        </div>
+        <div style="margin-left: 49em;">
+          <button type="submit" class="btn callButton mr-1" (click)="startAudioCall()">
+            <img src="./assets/images/call.png" class="callIcon" />
+          </button>
+          <button type="submit" class="btn broadcastButton" (click)="startVideoCall()">
+            <img src="./assets/images/video-call.png" class="callIcon" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- right side starts -->
+    <div class="messagesBox">
+      <div class="" [ngClass]="calling.templateName == 'noCall' ? '' :'callContainer oncall' ">
+        <div>
+          <div class="IncommingVideo border VideoCallBlock" [hidden]="isShowRemoteVideo()">
+            <video id="remoteVideo" muted style="object-fit: fill" autoplay poster="./assets/images/vidd.mp4">
+              <source src="" type="video/mp4" />
+            </video>
+          </div>
+          <div id="OutgoingVideo" class="OutgoingVideo VideoCallBlock" [hidden]="isHideLocalVideo()">
+            <video class="w-100" draggable="true" id="localVideo" muted style="object-fit: fill" autoplay>
+              <source src="" type="video/mp4" />
+            </video>
+          </div>
+        </div>
+        <ng-container [ngTemplateOutlet]="selectedTemplate"></ng-container>
+      </div>
+    </div>
+
+    <!-- <div class="messagesBox">
+      <ng-container *ngIf="activeChat.chatTitle">
+        <ng-container *ngFor="let chat of activeChat['chatHistory']">
+          <div [ngClass]="chat.from == currentUserName ? 'senderChatContainer' :'receiverChatContainer'">
+
+            <h4 class="msgBy text-capitalize" *ngIf="chat.from != currentUserName">{{chat.messageBy}}</h4>
+            <div class="bubbleContainer">
+
+              <div class="bubble" *ngIf="chat.type =='text'">
+                <p class="msgText">{{chat.content}}</p>
+              </div>
+
+              <div class="imgbubble" *ngIf="chat.type =='image'">
+                <mat-spinner [diameter]="30" *ngIf="!chat.content"></mat-spinner>
+                <img [src]="chat.content | safeUrl" class="w-100 msgImage img-thumbnail img-fluid"
+                  (click)="openImage(chat.content)" />
+              </div>
+
+              <div class="imgbubble file-attachment" *ngIf="chat.type !='text' && chat.type !='image'">
+                <mat-spinner [diameter]="30" *ngIf="!chat.content"></mat-spinner>
+                <ng-container *ngIf="chat.content">
+                  <img [src]="checkFileType(chat.content)" class="w-100 msgImage thumbnail img-fluid" />
+                  <a [href]="chat.content | safeUrl" download>Download</a>
+                </ng-container>
+              </div>
+
+              <span class="time">
+                <ng-container *ngIf="chat.readCount && chat.from == currentUserName">
+                  Read
+                  <br />
+                </ng-container>
+                <span> {{chat.date | date:"shortTime"}} </span>
+              </span>
+            </div>
+
+          </div>
+        </ng-container>
+      </ng-container>
+
+      <div class="chatRoomContainer" *ngIf="!activeChat.chatTitle && !loading">
+        <div style="height: 100%;" class="listingContainer">
+          <div class="emptyListContainer">
+            <div class="emptyListTop">
+              <div></div>
+              <img src="./assets/images/shipping.png" class="shippingIcon" />
+              <div class="noConvoTextWrapper">
+                <p class="noConvoText">No Conversation Yet</p>
+                <p style="max-width: 200px;" class="noConvoSub">
+                  Tap and hold on any message to star it, so you can easily find
+                  it later.
+                </p>
+              </div>
+            </div>
+            <div class="emptyListBottom">
+              <button type="submit" class="btn newChatButton" (click)="newChat()">
+                NEW CHAT
+              </button>
+              <button type="submit" class="btn refreshButton" (click)="getAllGroups()">
+                REFRESH
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div> -->
+
+    <div class="sendInputContainer" [hidden]="!activeChat.chatTitle || calling.templateName != 'noCall'">
+      <div class="sendInputWrapper">
+
+        <ng-container *ngIf="fileToSend">
+          <div class="w-100">
+            <img src="./assets/images/Document.png" class="attachmentItemIcon ml-4" />
+            <span class="ml-2">{{fileToSend.name}}</span>
+            <span class="font-weight-bolder hand ml-2 text-danger" (click)="removeAttachment()">X</span>
+          </div>
+        </ng-container>
+
+        <input #messageInputElement type="text" class="form-control" placeholder="Type to reply.."
+          (keyup)="typingmessage($event)" [(ngModel)]="message" *ngIf="!fileToSend" />
+
+        <div class="sendInputButtonContainer dropup " style="border-right: 1px solid #ebedf4">
+          <img src="./assets/images/attachment.png" data-toggle="dropdown" class="sendIcon dropdown-toggle" />
+          <div class="attachmentpopup dropdown-menu dropdown-menu-right selectOptionContainer">
+            <div class="attachmentPopHeader mx-3">
+              <p class="attachmentHeading">ADD ATTACHMENT</p>
+              <p class="attachmentHeading">X</p>
+            </div>
+            <div class="attachmentPopContent" (click)="fileuploader.click()">
+              <div class="attachmentTool">
+                <div class="attachmentToolIcon">
+                  <img src="./assets/images/Document.png" class="attachmentItemIcon" />
+                </div>
+                <input #fileuploader class="d-none" type="file" id="fileinput"
+                  (change)="handleFileInput($event.target.files)" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sendInputButtonContainer" (click)="sendTextMessage()">
+          <img src="./assets/images/send.png" class="sendIcon" />
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- The Modal -->
+<div id="myModal" class="modal" *ngIf="popupimagesrc">
+  <span class="close" (click)="closeImage()">&times;</span>
+  <img class="modal-content" id="img01" [src]="popupimagesrc | safeUrl">
+</div>
+
+<div id="myModal" class="modal" *ngIf="editGroupModel">
+  <div class="createChatPopup ">
+    <div class="chatPopupContent groupPopup">
+      <div class="modalHeader">
+        <p class="modalHeading">Edit group </p>
+        <img src="./assets/images/cross.png" class="modalCross hand" (click)="closeModal()" />
+      </div>
+      <div class=" modalContent">
+        <form [formGroup]="groupForm" class="w-100" (submit)="editGroup()">
+          <p class="modalContentHeading">Name your group </p>
+          <input type="text" class="form-control" placeholder="ex: Deeper team" formControlName="group_title" />
+          <form-errors [control]="groupForm.get('group_title')"></form-errors>
+        </form>
+      </div>
+      <button type="submit" class="btn doneButton mt-3" (click)="editGroup()" [disabled]="loading">
+        DONE
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<ng-template #noCall>
+  <ng-container *ngIf="activeChat.chatTitle">
+    <ng-container *ngFor="let chat of activeChat['chatHistory']">
+      <div [ngClass]="chat.from == currentUserName ? 'senderChatContainer' :'receiverChatContainer'">
+
+        <h4 class="msgBy text-capitalize" *ngIf="chat.from != currentUserName">{{chat.messageBy}}</h4>
+        <!-- first messgae from same person -->
+        <div class="bubbleContainer">
+
+          <div class="bubble" *ngIf="chat.type =='text'">
+            <p class="msgText">{{chat.content}}</p>
+          </div>
+
+          <div class="imgbubble" *ngIf="chat.type =='image'">
+            <mat-spinner [diameter]="30" *ngIf="!chat.content"></mat-spinner>
+            <img [src]="chat.content | safeUrl" class="w-100 msgImage img-thumbnail img-fluid"
+              (click)="openImage(chat.content)" />
+          </div>
+
+          <div class="imgbubble file-attachment" *ngIf="chat.type !='text' && chat.type !='image'">
+            <mat-spinner [diameter]="30" *ngIf="!chat.content"></mat-spinner>
+            <ng-container *ngIf="chat.content">
+              <img [src]="checkFileType(chat.content)" class="w-100 msgImage thumbnail img-fluid" />
+              <a [href]="chat.content | safeUrl" download>Download</a>
+            </ng-container>
+          </div>
+
+          <span class="time">
+            <ng-container *ngIf="chat.readCount && chat.from == currentUserName">
+              Read
+              <br />
+            </ng-container>
+            <span> {{chat.date | date:"shortTime"}} </span>
+          </span>
+        </div>
+
+      </div>
+    </ng-container>
+  </ng-container>
+
+  <div class="chatRoomContainer" *ngIf="!activeChat.chatTitle && !loading">
+    <div style="height: 100%;" class="listingContainer">
+      <!-- empty list container start -->
+      <div class="emptyListContainer">
+        <div class="emptyListTop">
+          <div></div>
+          <img src="./assets/images/shipping.png" class="shippingIcon" />
+          <div class="noConvoTextWrapper">
+            <p class="noConvoText">No Conversation Yet</p>
+            <p style="max-width: 200px;" class="noConvoSub">
+              Tap and hold on any message to star it, so you can easily find
+              it later.
+            </p>
+          </div>
+        </div>
+        <div class="emptyListBottom">
+          <button type="submit" class="btn newChatButton" (click)="newChat()">
+            NEW CHAT
+          </button>
+          <button type="submit" class="btn refreshButton" (click)="getAllGroups()">
+            REFRESH
+          </button>
+        </div>
+      </div>
+      <!-- empty list container end -->
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #incommingAudioCall>
+  <p class="callContainerStatus">Incoming Call</p>
+  <p class="callerName text-capitalize">{{ calling['callerName'] }}</p>
+  <audio id="Incomingaudio" autoplay src="./assets/images/calling_you.mp3" preload="auto"></audio>
+  <img src="./assets/images/audio.png" class="audioIcon" />
+  <div style="width: 150px" class="callButtonsContainer">
+    <img src="./assets/images/decline-button.png" class="responseButtonImg" (click)="stopCall()" />
+    <img src="./assets/images/Accept-button.png" class="responseButtonImg" (click)="acceptcall()" />
+  </div>
+</ng-template>
+
+<ng-template #outgoingAudioCall>
+  <p class="callContainerStatus">Calling</p>
+  <p class="callerName text-capitalize">{{ calling['callerName'] }}</p>
+  <img src="./assets/images/blue-avatar.png" class="avatarIcon" />
+  <div style="width: 150px" class="callButtonsContainer">
+    <!-- <img src="./assets/images/video-call-off.png" class="responseButtonImg" /> -->
+    <img src="./assets/images/decline-button.png" class="responseButtonImg" (click)="stopCall()" />
+    <img src="./assets/images/microphone-{{ settings.isOnInProgressMicrophone ? 'on.png' :'off.png'}}"
+      class="responseButtonImg" (click)="changeSettings('isOnInProgressMicrophone')" />
+  </div>
+</ng-template>
+
+<ng-template #AudioCallInProgress>
+  <p class="settingsIcon callContainerStatus white m-3">{{ callTime | formatTime }}</p>
+  <p class="callerName text-capitalize">{{ calling['callerName'] }}</p>
+  <img src="./assets/images/blue-avatar.png" class="avatarIcon" />
+  <div style="width: 150px" class="callButtonsContainer">
+    <!-- <img src="./assets/images/video-call-off.png" class="responseButtonImg" /> -->
+    <img src="./assets/images/decline-button.png" class="responseButtonImg" (click)="stopCall()" />
+    <img src="./assets/images/microphone-{{ settings.isOnInProgressMicrophone ? 'on.png' :'off.png'}}"
+      class="responseButtonImg" (click)="changeSettings('isOnInProgressMicrophone')" />
+  </div>
+</ng-template>
+
+<ng-template #incommingVideoCall>
+  <audio id="audiotag1" autoplay src="./assets/images/calling_you.mp3" preload="auto"></audio>
+  <p class="callContainerStatus">Incoming Call</p>
+  <p class="callerName text-capitalize">{{ calling['callerName'] }}</p>
+  <img src="./assets/images/blue-avatar.png" class="avatarIcon" />
+  <div style="width:140px" class="callButtonsContainer">
+    <img src="./assets/images/decline-button.png" class="responseButtonImg" (click)="stopCall()" />
+    <img src="./assets/images/Accept-button.png" class="responseButtonImg" (click)="acceptcall()" />
+  </div>
+</ng-template>
+
+<ng-template #outgoingVideoCall>
+  <p class="callContainerStatus">Calling </p>
+  <p class="callerName text-capitalize">{{ calling['callerName'] }}</p>
+  <img src="./assets/images/blue-avatar.png" class="avatarIcon" />
+  <div style="width: 200px" class="callButtonsContainer">
+    <img src="./assets/images/video-call-{{settings.isOnInProgressCamara ? 'on.png' :'off.png'}}"
+      class="responseButtonImg" (click)="changeSettings('isOnInProgressCamara')" />
+    <img src="./assets/images/decline-button.png" class="responseButtonImg" (click)="stopCall()" />
+    <img src="./assets/images/microphone-{{settings.isOnInProgressMicrophone ? 'on.png' :'off.png'}}"
+      class="responseButtonImg" (click)="changeSettings('isOnInProgressMicrophone')" />
+  </div>
+</ng-template>
+
+<ng-template #VideoCallInProgress>
+  <p class="settingsIcon callContainerStatus white m-3">{{ callTime | formatTime }}</p>
+  <p class="callerName text-capitalize" id="callerHolder">{{ calling['callerName'] }}</p>
+  <img src="./assets/images/blue-avatar.png" class="avatarIcon" />
+  <div style="width: 200px" class="callButtonsContainer">
+    <img src="./assets/images/video-call-{{ settings.isOnInProgressCamara ? 'on.png' :'off.png'}}"
+      class="responseButtonImg" (click)="changeSettings('isOnInProgressCamara')" />
+    <img src="./assets/images/decline-button.png" class="responseButtonImg" (click)="stopCall()" />
+    <img src="./assets/images/microphone-{{ settings.isOnInProgressMicrophone ? 'on.png' :'off.png'}}"
+      class="responseButtonImg" (click)="changeSettings('isOnInProgressMicrophone')" />
+  </div>
+</ng-template>

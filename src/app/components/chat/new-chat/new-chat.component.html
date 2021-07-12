@@ -1,0 +1,42 @@
+<div class="newChatHeader">
+  <div class="newChatLeft hand">
+    <img src="./assets/images/arrow-left.png" class="arrowLeft" (click)="backScreen()" />
+    <p class="newChatHeading">New Chat</p>
+  </div>
+  <div class="newChatRight hand">
+    <img class="goodMark" src="./assets/images/checkmark.png" />
+  </div>
+</div>
+<div class="newChatSearchBox">
+  <div class="input-group">
+    <div class="input-group-prepend">
+      <img src="./assets/images/search.png" class="seacrchIcon" />
+    </div>
+    <input type="text" class="form-control" placeholder="Search" #searchInput />
+  </div>
+</div>
+<div class="addGrpChat">
+  <div class="addGrpChatTop hand" (click)="addGroupEvent()">
+    <img src="./assets/images/Group Chat.png" class="addgrpIcon" />
+    <p class="addGrpTitle">Add Group Chat</p>
+  </div>
+  <div class="addGrpSep"></div>
+  <!-- <div class="addGrpSub"> -->
+  <p class="cntct">Contacts</p>
+  <!-- </div> -->
+</div>
+<div class="contactListContainer max-height">
+
+  <ng-container *ngFor="let user of AllUsers">
+    <div class="contactListCard hand" (click)="startChat(user)">
+      <div class="contactListCardLeft">
+        <img src="./assets/images/user.png" class="ListCardIcon" />
+        <p class="ListCardName text-capitalize pb-1">{{user.full_name}}</p>
+      </div>
+      <div class="contactListCardRight justify-content-end pl-1">
+        <img src="./assets/images/chat.png" class=" pl-1 ListCardButton hand" />
+      </div>
+    </div>
+  </ng-container>
+
+</div>
