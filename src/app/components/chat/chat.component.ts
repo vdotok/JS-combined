@@ -13,9 +13,9 @@ import { StorageService } from 'src/app/shared/services/storage.service';
 import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 import FormsHandler from 'src/app/shared/FormsHandler/FormsHandler';
 import { MessageModel, onlineOfflineModel, receiptModel, typingModel } from 'src/app/shared/models/chat';
-import { VdkCallService } from 'src/app/shared/services/vdk-call.service';
 import { Subscription, timer } from 'rxjs';
 import { VdkM2MCallService } from 'src/app/shared/services/vdk-m2m-call.service';
+import { VdkOne2OneCallService } from 'src/app/shared/services/vdk-one2one-call.service';
 
 @Component({
   selector: 'chat',
@@ -59,6 +59,7 @@ export class ChatComponent implements OnInit {
   setToActive = null;
   countDownTime: Subscription;
   callTime = 0;
+  groupOutgoingVideoCall = false;
   calling = {
     participant: [],
     call_type: 'video',
@@ -93,8 +94,8 @@ export class ChatComponent implements OnInit {
 
   constructor(
     public pubsubService: PubsubService,
-    public VdkCallService: VdkCallService,
-    public m2mCallService: VdkM2MCallService,
+    public vdkOne2OneCallSVC: VdkOne2OneCallService,
+    public vdkM2MCallSVC: VdkM2MCallService,
     private svc: BaseService,
     private router: Router,
     private elRef: ElementRef,
@@ -108,8 +109,8 @@ export class ChatComponent implements OnInit {
       'group_title': new FormControl('', [Validators.required, Validators.maxLength(100)]),
     }, { updateOn: 'change' });
     this.pubsubService.initConfigure();
-    this.VdkCallService.initConfigure();
-    this.m2mCallService.initConfigure();
+    this.vdkOne2OneCallSVC.initConfigure();
+    this.vdkM2MCallSVC.initConfigure();
   }
 
   ngOnInit() {
@@ -126,16 +127,16 @@ export class ChatComponent implements OnInit {
       this.sdkconnected = false;
     });
 
-    this.VdkCallService.Client.on("register", response => {
+    this.vdkOne2OneCallSVC.Client.on("register", response => {
       console.error("register response", response);
     });
 
-    this.VdkCallService.Client.on("connected", response => {
+    this.vdkOne2OneCallSVC.Client.on("connected", response => {
       this.sdkconnected = true;
       console.error("connected response", response);
     });
 
-    this.VdkCallService.Client.on("call", response => {
+    this.vdkOne2OneCallSVC.Client.on("call", response => {
       console.error("call response", response);
       switch (response.type) {
         case "CALL_RECEIVED":
@@ -154,11 +155,11 @@ export class ChatComponent implements OnInit {
           break;
         case "MISSED_CALL":
           this.resetCall();
-          this.toastr.error("Opps", 'Missed Call')
+          this.toastr.error('You have Missed Call', 'Opps!')
           break;
         case "CALL_REJECTED":
           this.resetCall();
-          this.toastr.error("Opps", 'user is busy')
+          this.toastr.error('User is busy', "Opps!")
           break;
         case "CALL_ACCEPTED":
           this.changeDetector.detectChanges();
@@ -175,14 +176,11 @@ export class ChatComponent implements OnInit {
       }
     });
 
-    // m2m
-
-    this.m2mCallService.Client.on("connected", response => {
-      this.sdkconnected = true;
+    this.vdkM2MCallSVC.Client.on("connected", response => {
       console.error("m2m connected response", response);
     });
 
-    this.m2mCallService.Client.on("groupCall", response => {
+    this.vdkM2MCallSVC.Client.on("groupCall", response => {
       console.error("groupCall response", response);
       switch (response.type) {
         case "CALL_RECEIVED":
@@ -201,11 +199,11 @@ export class ChatComponent implements OnInit {
           break;
         case "MISSED_CALL":
           this.resetCall();
-          this.toastr.error("Opps", 'Missed Call')
+          this.toastr.error('You have Missed Call', 'Opps!')
           break;
         case "CALL_REJECTED":
           this.resetCall();
-          this.toastr.error("Opps", 'user is busy')
+          this.toastr.error('User is busy', "Opps!")
           break;
         case "CALL_ACCEPTED":
           this.changeDetector.detectChanges();
@@ -312,6 +310,22 @@ export class ChatComponent implements OnInit {
     }
   }
 
+  getUsers() {
+    const data = {
+      sorting: "ORDER BY full_name ASC",
+      search_field: "full_name",
+      search_value: '',
+      condition: "contains",
+    }
+    this.svc.post('AllUsers', data).subscribe(res => {
+      this.loading = false;
+      if (res.status == 200) {
+        this.CopyAllUsers = [...res.users];
+        this.AllUsers = res.users;
+      }
+    })
+  }
+
   deleteGroup(group) {
     this.loading = true;
     const playload = {
@@ -399,6 +413,7 @@ export class ChatComponent implements OnInit {
       this.changeDetector.detectChanges();
     });
   }
+
   checkFileType(content: any) {
     let preview = content.includes('text/plain') ? ('./assets/images/txt.png') : content.includes('/pdf') ? ('./assets/images/pdf.png') : content.includes('/json') ? ('./assets/images/json.png') : 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Icon-doc.svg/810px-Icon-doc.svg.png';
     if (content.includes('video/'))
@@ -407,9 +422,11 @@ export class ChatComponent implements OnInit {
       preview = './assets/images/audio.png';
     return preview;
   }
+
   fileType(content: any) {
     return content.split(";")[0].split(":")[1]
   }
+
   findChatThread(channel) {
     return FindArrayObject(this.AllGroups, 'channel_name', channel);
   }
@@ -713,22 +730,6 @@ export class ChatComponent implements OnInit {
   }
 
 
-  // call
-  getUsers() {
-    const data = {
-      sorting: "ORDER BY full_name ASC",
-      search_field: "full_name",
-      search_value: '',
-      condition: "contains",
-    }
-    this.svc.post('AllUsers', data).subscribe(res => {
-      this.loading = false;
-      if (res.status == 200) {
-        this.CopyAllUsers = [...res.users];
-        this.AllUsers = res.users;
-      }
-    })
-  }
   findUserName(ref_id: string): string {
     const user = FindArrayObject(this.CopyAllUsers, 'ref_id', ref_id);
     return user ? user.full_name : '';
@@ -759,7 +760,8 @@ export class ChatComponent implements OnInit {
 
   stopCall() {
     this.calling.templateName = 'noCall';
-    this.VdkCallService.endCall();
+    this.vdkOne2OneCallSVC.endCall();
+    this.vdkM2MCallSVC.leaveGroupCall();
     this.resetCall();
     this.changeDetector.detectChanges();
     console.error("stopCall");
@@ -769,7 +771,7 @@ export class ChatComponent implements OnInit {
     return this.calling.templateName != 'noCall';
   }
 
-  groupOutgoingVideoCall = false;
+
 
   startVideoCall() {
     if (this.activeChat.auto_created) {
@@ -793,8 +795,7 @@ export class ChatComponent implements OnInit {
       remoteVideo: document.getElementById("remoteVideo"),
       to: [...participantsList],
     }
-    console.error("paramsparams", params);
-    this.VdkCallService.Call(params);
+    this.vdkOne2OneCallSVC.Call(params);
   }
 
   startM2MVideoCall() {
@@ -810,12 +811,10 @@ export class ChatComponent implements OnInit {
       localVideo: document.getElementById("localVideo"),
       to: [...p],
     }
-    console.error("paramsparams", params);
-    this.m2mCallService.groupCall(params);
+    this.vdkM2MCallSVC.groupCall(params);
   }
 
   acceptcall() {
-    console.error("this.calling", this.calling);
     if (this.calling.session == 'one_to_one') {
       this.acceptOne2oneCall();
     } else {
@@ -824,7 +823,7 @@ export class ChatComponent implements OnInit {
   }
 
   acceptOne2oneCall() {
-    this.VdkCallService.acceptCall(document.getElementById("localVideo"), document.getElementById("remoteVideo"));
+    this.vdkOne2OneCallSVC.acceptCall(document.getElementById("localVideo"), document.getElementById("remoteVideo"));
     this.changeDetector.detectChanges();
     this.calling.templateName = this.calling.call_type == 'video' ? 'VideoCallInProgress' : 'AudioCallInProgress';
     this.startWatch();
@@ -841,7 +840,7 @@ export class ChatComponent implements OnInit {
     }
     this.changeDetector.detectChanges();
     this.groupOutgoingVideoCall = false;
-    this.m2mCallService.joinGroupCall(params);
+    this.vdkM2MCallSVC.joinGroupCall(params);
     this.changeDetector.detectChanges();
   }
 
@@ -850,7 +849,6 @@ export class ChatComponent implements OnInit {
       this.countDownTime = timer(0, 1000).subscribe(() => ++this.callTime);
     }
   }
-
 
   startAudioCall() {
     if (this.activeChat.auto_created) {
@@ -873,8 +871,7 @@ export class ChatComponent implements OnInit {
       remoteVideo: document.getElementById("remoteVideo"),
       to: [...participantsList],
     }
-    console.error(params);
-    this.VdkCallService.audioCall(params);
+    this.vdkOne2OneCallSVC.audioCall(params);
   }
 
   startm2mAudioCall() {
@@ -889,7 +886,7 @@ export class ChatComponent implements OnInit {
       localVideo: document.getElementById("localAudio"),
       to: [...participants],
     }
-    this.m2mCallService.groupCall(params);
+    this.vdkM2MCallSVC.groupCall(params);
   }
 
   changeSettings(filed) {
@@ -905,12 +902,12 @@ export class ChatComponent implements OnInit {
     this.settings[filed] = !this.settings[filed];
     switch (filed) {
       case 'isOnInProgressCamara':
-        this.settings[filed] ? this.VdkCallService.setCameraOn() : this.VdkCallService.setCameraOff();
+        this.settings[filed] ? this.vdkOne2OneCallSVC.setCameraOn() : this.vdkOne2OneCallSVC.setCameraOff();
         const displaystyle = this.settings[filed] ? 'block' : 'none';
         if (document.getElementById('OutgoingVideo')) document.getElementById('OutgoingVideo').style.display = displaystyle;
         break;
       case 'isOnInProgressMicrophone':
-        this.settings[filed] ? this.VdkCallService.setMicUnmute() : this.VdkCallService.setMicMute();
+        this.settings[filed] ? this.vdkOne2OneCallSVC.setMicUnmute() : this.vdkOne2OneCallSVC.setMicMute();
         const enabled = this.settings[filed];
         const audiotrack: any = (<HTMLInputElement>document.getElementById("localAudio"));
         if (audiotrack && audiotrack.audioTracks) {
@@ -924,14 +921,14 @@ export class ChatComponent implements OnInit {
     this.settings[filed] = !this.settings[filed];
     switch (filed) {
       case 'isOnInProgressCamara':
-        this.settings[filed] ? this.m2mCallService.setCameraOn() : this.m2mCallService.setCameraOff();
+        this.settings[filed] ? this.vdkM2MCallSVC.setCameraOn() : this.vdkM2MCallSVC.setCameraOff();
         const displaystyle = this.settings[filed] ? 'block' : 'none';
         const displayNamestyle = this.settings[filed] ? 'none' : 'block';
         document.getElementById('localVideo').style.display = displaystyle;
         document.getElementById('localNameHolder').style.display = displayNamestyle;
         break;
       case 'isOnInProgressMicrophone':
-        this.settings[filed] ? this.m2mCallService.setMicUnmute() : this.m2mCallService.setMicMute();
+        this.settings[filed] ? this.vdkM2MCallSVC.setMicUnmute() : this.vdkM2MCallSVC.setMicMute();
         const enabled = this.settings[filed];
         const audiotrack: any = (<HTMLInputElement>document.getElementById("localAudio"));
         if (audiotrack && audiotrack.audioTracks) {

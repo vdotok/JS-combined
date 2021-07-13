@@ -8,7 +8,7 @@
 
       <ng-container *ngIf="threadType === 'THREAD'">
         <div style="align-items: center; margin:0px" class="leftSectionHeader">
-          <h4 class="leftHeading">CHATROOMS ....{{calling.templateName}}</h4>
+          <h4 class="leftHeading">CHATROOMS</h4>
           <h4 class="createText" (click)="newChat()">Create +</h4>
         </div>
         <!-- empty chats section start-->
@@ -44,15 +44,11 @@
                     </div>
                   </div>
                   <p [ngClass]="group.Online ? 'cardOnlineStatus' :'cardOfflineStatus'" *ngIf="group.auto_created">
-                    {{group.Online
-                    ?
-                    'Online' :'Offline'}}
+                    {{ group.Online ? 'Online' :'Offline'}}
                   </p>
                   <p class="cardOnlineStatus" *ngIf="!group.auto_created">
                     {{ group.onlineParticipants + '/' + group.TotalParticipants }} Online
-
                   </p>
-
                 </div>
               </div>
             </ng-container>
@@ -74,8 +70,7 @@
     <div class="leftSideFooter">
       <div class="logoutContainer" (click)="logout()">
         <img src="./assets/images/log-out.png" class="logoutLogo" />
-        <span class="logoutText">LOG OUT {{currentUserData.full_name}}
-          }}</span>
+        <span class="logoutText">LOG OUT {{currentUserData.full_name}} </span>
         <span class="ml-1" [ngClass]="sdkconnected ? 'online' :'offline' "></span>
       </div>
     </div>
@@ -101,7 +96,6 @@
       </div>
     </div>
 
-
     <!-- right side starts -->
     <div class="messagesBox" [ngClass]="calling.templateName == 'noCall' ? 'messagesBox' :''"
       *ngIf="isShowOne2oneCall()">
@@ -124,7 +118,6 @@
     </div>
 
     <ng-container [ngTemplateOutlet]="selectedTemplate" *ngIf="isShowM2MCall()"></ng-container>
-
 
     <div class="sendInputContainer" [hidden]="!activeChat.chatTitle || calling.templateName != 'noCall'">
       <div class="sendInputWrapper">

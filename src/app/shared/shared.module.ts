@@ -12,9 +12,9 @@ import { GetErrorsComponent } from './FormsHandler/get-errors.component';
 import { MAT_DIALOG_DEFAULT_OPTIONS } from '@angular/material/dialog';
 import { filterPipe } from './pipe/filter';
 import { SafeUrlPipe } from './pipe/safeurl';
-import { VdkCallService } from './services/vdk-call.service';
 import { FormatTimePipe } from './pipe/formatTime';
 import { VdkM2MCallService } from './services/vdk-m2m-call.service';
+import { VdkOne2OneCallService } from './services/vdk-one2one-call.service';
 
 const components = [
   GetErrorsComponent,
@@ -36,7 +36,7 @@ const components = [
     AuthGuard,
     BaseService,
     PubsubService,
-    VdkCallService,
+    VdkOne2OneCallService,
     VdkM2MCallService,
     { provide: MAT_DIALOG_DEFAULT_OPTIONS, useValue: { hasBackdrop: false } },
     { provide: HTTP_INTERCEPTORS, useClass: HttpService, multi: true },

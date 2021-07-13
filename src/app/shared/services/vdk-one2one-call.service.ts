@@ -3,7 +3,7 @@ import { StorageService } from './storage.service';
 declare const CVDOTOK: any;
 
 @Injectable()
-export class VdkCallService {
+export class VdkOne2OneCallService {
   @Output() public Client: any;
 
   constructor() { }
