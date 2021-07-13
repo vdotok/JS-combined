@@ -8,7 +8,7 @@
 
       <ng-container *ngIf="threadType === 'THREAD'">
         <div style="align-items: center; margin:0px" class="leftSectionHeader">
-          <h4 class="leftHeading">CHATROOMS</h4>
+          <h4 class="leftHeading">CHATROOMS ....{{calling.templateName}}</h4>
           <h4 class="createText" (click)="newChat()">Create +</h4>
         </div>
         <!-- empty chats section start-->
@@ -74,7 +74,8 @@
     <div class="leftSideFooter">
       <div class="logoutContainer" (click)="logout()">
         <img src="./assets/images/log-out.png" class="logoutLogo" />
-        <span class="logoutText">LOG OUT {{currentUserData.full_name}}</span>
+        <span class="logoutText">LOG OUT {{currentUserData.full_name}}
+          }}</span>
         <span class="ml-1" [ngClass]="sdkconnected ? 'online' :'offline' "></span>
       </div>
     </div>
@@ -84,11 +85,12 @@
       <div class="d-flex">
         <div style="display: flex;flex-direction: row;align-items: center">
           <img src="./assets/images/arrow-left.png" class="arrowLeft hand" (click)="backScreen()" *ngIf="isMobile()" />
-          <p class="roomNameText text-capitalize" *ngIf="activeChat.chatTitle">{{activeChat.chatTitle}}
+          <p class="roomNameText text-capitalize" *ngIf="activeChat.chatTitle && calling.templateName =='noCall'">
+            {{activeChat.chatTitle}}
           </p>
 
         </div>
-        <div style="margin-left: 49em;">
+        <div style="margin-left: 49em;" *ngIf="calling.templateName =='noCall'">
           <button type="submit" class="btn callButton mr-1" (click)="startAudioCall()">
             <img src="./assets/images/call.png" class="callIcon" />
           </button>
@@ -101,8 +103,9 @@
 
 
     <!-- right side starts -->
-    <div class="messagesBox">
-      <div class="" [ngClass]="calling.templateName == 'noCall' ? '' :'callContainer oncall' ">
+    <div class="messagesBox" [ngClass]="calling.templateName == 'noCall' ? 'messagesBox' :''"
+      *ngIf="isShowOne2oneCall()">
+      <div [ngClass]="calling.templateName == 'noCall' ? '' :'callContainer oncall' ">
         <div>
           <div [hidden]="isShowRemoteVideo()"
             [ngClass]="isShowRemoteVideo() ? 'IncommingVideo border VideoCallBlock' : ''">
@@ -120,72 +123,8 @@
       </div>
     </div>
 
-    <!-- <div class="messagesBox">
-      <ng-container *ngIf="activeChat.chatTitle">
-        <ng-container *ngFor="let chat of activeChat['chatHistory']">
-          <div [ngClass]="chat.from == currentUserName ? 'senderChatContainer' :'receiverChatContainer'">
+    <ng-container [ngTemplateOutlet]="selectedTemplate" *ngIf="isShowM2MCall()"></ng-container>
 
-            <h4 class="msgBy text-capitalize" *ngIf="chat.from != currentUserName">{{chat.messageBy}}</h4>
-            <div class="bubbleContainer">
-
-              <div class="bubble" *ngIf="chat.type =='text'">
-                <p class="msgText">{{chat.content}}</p>
-              </div>
-
-              <div class="imgbubble" *ngIf="chat.type =='image'">
-                <mat-spinner [diameter]="30" *ngIf="!chat.content"></mat-spinner>
-                <img [src]="chat.content | safeUrl" class="w-100 msgImage img-thumbnail img-fluid"
-                  (click)="openImage(chat.content)" />
-              </div>
-
-              <div class="imgbubble file-attachment" *ngIf="chat.type !='text' && chat.type !='image'">
-                <mat-spinner [diameter]="30" *ngIf="!chat.content"></mat-spinner>
-                <ng-container *ngIf="chat.content">
-                  <img [src]="checkFileType(chat.content)" class="w-100 msgImage thumbnail img-fluid" />
-                  <a [href]="chat.content | safeUrl" download>Download</a>
-                </ng-container>
-              </div>
-
-              <span class="time">
-                <ng-container *ngIf="chat.readCount && chat.from == currentUserName">
-                  Read
-                  <br />
-                </ng-container>
-                <span> {{chat.date | date:"shortTime"}} </span>
-              </span>
-            </div>
-
-          </div>
-        </ng-container>
-      </ng-container>
-
-      <div class="chatRoomContainer" *ngIf="!activeChat.chatTitle && !loading">
-        <div style="height: 100%;" class="listingContainer">
-          <div class="emptyListContainer">
-            <div class="emptyListTop">
-              <div></div>
-              <img src="./assets/images/shipping.png" class="shippingIcon" />
-              <div class="noConvoTextWrapper">
-                <p class="noConvoText">No Conversation Yet</p>
-                <p style="max-width: 200px;" class="noConvoSub">
-                  Tap and hold on any message to star it, so you can easily find
-                  it later.
-                </p>
-              </div>
-            </div>
-            <div class="emptyListBottom">
-              <button type="submit" class="btn newChatButton" (click)="newChat()">
-                NEW CHAT
-              </button>
-              <button type="submit" class="btn refreshButton" (click)="getAllGroups()">
-                REFRESH
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div> -->
 
     <div class="sendInputContainer" [hidden]="!activeChat.chatTitle || calling.templateName != 'noCall'">
       <div class="sendInputWrapper">

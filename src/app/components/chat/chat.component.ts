@@ -63,8 +63,11 @@ export class ChatComponent implements OnInit {
     participant: [],
     call_type: 'video',
     templateName: 'noCall',
-    callerName: ''
+    callerName: '',
+    from: "",
+    session: "",
   }
+
   settings = {
     isOnInProgressCamara: true,
     isOnInProgressMicrophone: true
@@ -78,7 +81,12 @@ export class ChatComponent implements OnInit {
       AudioCallInProgress: this.AudioCallInProgress,
       incommingVideoCall: this.incommingVideoCall,
       outgoingVideoCall: this.outgoingVideoCall,
-      VideoCallInProgress: this.VideoCallInProgress
+      VideoCallInProgress: this.VideoCallInProgress,
+      groupIncommingAudioCall: this.groupIncommingAudioCall,
+      groupOutgoingAudioCall: this.groupOutgoingAudioCall,
+      groupOngoingAudioCall: this.groupOngoingAudioCall,
+      groupIncommingVideoCall: this.groupIncommingVideoCall,
+      groupVideoCall: this.groupVideoCall
     }
     return templateList[this.calling.templateName];
   }
@@ -131,6 +139,9 @@ export class ChatComponent implements OnInit {
       console.error("call response", response);
       switch (response.type) {
         case "CALL_RECEIVED":
+          this.calling.session = response.session;
+          this.calling.from = response.from;
+          this.changeDetector.detectChanges();
           const full_name = this.findUserName(response.from);
           this.calling.callerName = full_name;
           this.calling.templateName = response.call_type == 'video' ? 'incommingVideoCall' : 'incommingAudioCall';
@@ -179,6 +190,9 @@ export class ChatComponent implements OnInit {
           this.calling.callerName = full_name;
           this.calling.templateName = response.call_type == 'video' ? 'incommingVideoCall' : 'incommingAudioCall';
           this.calling.call_type = response.call_type;
+          this.calling.session = response.session;
+          this.calling.from = response.from;
+          this.changeDetector.detectChanges();
           this.changeDetector.detectChanges();
           this.screen = 'MAIN';
           break;
@@ -730,7 +744,9 @@ export class ChatComponent implements OnInit {
       participant: [],
       call_type: 'video',
       templateName: 'noCall',
-      callerName: ''
+      callerName: '',
+      from: "",
+      session: "",
     }
     this.callTime = 0;
     this.screen = 'LISTING';
@@ -765,6 +781,7 @@ export class ChatComponent implements OnInit {
 
   startOne2OneVideoCall() {
     if (this.inCall()) return;
+    this.calling.session = 'one_to_one';
     document.getElementById('OutgoingVideo').style.display = 'block';
     this.screen = 'MAIN';
     this.calling.templateName = 'outgoingVideoCall';
@@ -798,10 +815,33 @@ export class ChatComponent implements OnInit {
   }
 
   acceptcall() {
+    console.error("this.calling", this.calling);
+    if (this.calling.session == 'one_to_one') {
+      this.acceptOne2oneCall();
+    } else {
+      this.acceptM2MCall();
+    }
+  }
+
+  acceptOne2oneCall() {
     this.VdkCallService.acceptCall(document.getElementById("localVideo"), document.getElementById("remoteVideo"));
     this.changeDetector.detectChanges();
     this.calling.templateName = this.calling.call_type == 'video' ? 'VideoCallInProgress' : 'AudioCallInProgress';
     this.startWatch();
+    this.changeDetector.detectChanges();
+  }
+
+  acceptM2MCall() {
+    if (this.isM2MProgressCall()) return;
+    this.calling.templateName = this.calling.call_type == 'video' ? 'groupVideoCall' : 'groupOngoingAudioCall';
+    this.changeDetector.detectChanges();
+    const params = {
+      localVideo: document.getElementById("localVideo"),
+      call_type: this.calling.call_type
+    }
+    this.changeDetector.detectChanges();
+    this.groupOutgoingVideoCall = false;
+    this.m2mCallService.joinGroupCall(params);
     this.changeDetector.detectChanges();
   }
 
@@ -822,16 +862,18 @@ export class ChatComponent implements OnInit {
 
   startone2oneAudioCall() {
     if (this.inCall()) return;
+    this.calling.session = 'one_to_one';
     this.calling.call_type = 'audio';
     this.screen = 'MAIN';
     this.calling.templateName = 'outgoingAudioCall';
     this.calling.callerName = this.activeChat.chatTitle;
-    const participantsList = this.activeChat.participants['participants'].filter(g => g.ref_id != this.currentUserName).map(g => g.ref_id);
+    const participantsList = this.activeChat['participants'].filter(g => g.ref_id != this.currentUserName).map(g => g.ref_id);
     const params = {
       localVideo: document.getElementById("localVideo"),
       remoteVideo: document.getElementById("remoteVideo"),
       to: [...participantsList],
     }
+    console.error(params);
     this.VdkCallService.audioCall(params);
   }
 
@@ -851,6 +893,15 @@ export class ChatComponent implements OnInit {
   }
 
   changeSettings(filed) {
+    if (this.calling.session == 'one_to_one') {
+      this.changeOne2OneSettings(filed);
+    } else {
+      this.changeM2MSettings(filed);
+    }
+
+  }
+
+  changeOne2OneSettings(filed) {
     this.settings[filed] = !this.settings[filed];
     switch (filed) {
       case 'isOnInProgressCamara':
@@ -869,6 +920,27 @@ export class ChatComponent implements OnInit {
     }
   }
 
+  changeM2MSettings(filed) {
+    this.settings[filed] = !this.settings[filed];
+    switch (filed) {
+      case 'isOnInProgressCamara':
+        this.settings[filed] ? this.m2mCallService.setCameraOn() : this.m2mCallService.setCameraOff();
+        const displaystyle = this.settings[filed] ? 'block' : 'none';
+        const displayNamestyle = this.settings[filed] ? 'none' : 'block';
+        document.getElementById('localVideo').style.display = displaystyle;
+        document.getElementById('localNameHolder').style.display = displayNamestyle;
+        break;
+      case 'isOnInProgressMicrophone':
+        this.settings[filed] ? this.m2mCallService.setMicUnmute() : this.m2mCallService.setMicMute();
+        const enabled = this.settings[filed];
+        const audiotrack: any = (<HTMLInputElement>document.getElementById("localAudio"));
+        if (audiotrack && audiotrack.audioTracks) {
+          audiotrack.audioTracks[0].enabled = enabled;
+        }
+        break;
+    }
+  }
+
   isShowRemoteVideo(): boolean {
     return this.calling.templateName != 'VideoCallInProgress' && this.calling.call_type != 'video';
   }
@@ -876,6 +948,22 @@ export class ChatComponent implements OnInit {
   isHideLocalVideo(): boolean {
     const ishide = !(this.calling.templateName == 'VideoCallInProgress' || this.calling.templateName == 'outgoingVideoCall');
     return ishide;
+  }
+
+  isShowOne2oneCall() {
+    const one2onetemplateList = `noCall,incommingAudioCall,outgoingAudioCall,
+    AudioCallInProgress,incommingVideoCall,outgoingVideoCall,VideoCallInProgress`
+    return one2onetemplateList.includes(this.calling.templateName);
+  }
+
+  isShowM2MCall() {
+    const one2onetemplateList = `groupIncommingAudioCall,groupOutgoingAudioCall,groupOngoingAudioCall,
+    groupIncommingVideoCall,groupVideoCall`;
+    return one2onetemplateList.includes(this.calling.templateName);
+  }
+
+  isM2MProgressCall() {
+    return this.calling.templateName == 'groupVideoCall' || this.calling.templateName == 'groupOngoingAudioCall';
   }
 
 }

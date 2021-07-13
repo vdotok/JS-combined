@@ -6,8 +6,7 @@ declare const CVDOTOK: any;
 export class VdkCallService {
   @Output() public Client: any;
 
-  constructor() {
-  }
+  constructor() { }
 
   public initConfigure(): void {
     this.Client = new CVDOTOK.Client({
@@ -21,7 +20,6 @@ export class VdkCallService {
         user.authorization_token.toString()
       );
     });
-    console.error("initConfigure",this.Client);
   }
 
   public Disconnect(): void {
@@ -66,22 +64,6 @@ export class VdkCallService {
 
   setMicUnmute(): void {
     this.Client.SetMicUnmute();
-  }
-
-  groupCall(params): void {
-    this.Client.GroupCall(params);
-  }
-
-  joinGroupCall(params): void {
-    this.Client.JoinGroupCall(params);
-  }
-
-  leaveGroupCall(): void {
-    this.Client.LeaveGroupCall();
-  }
-
-  setParticipantVideo(participant, vidio) {
-    this.Client.SetParticipantVideo(participant, vidio);
   }
 
 }
