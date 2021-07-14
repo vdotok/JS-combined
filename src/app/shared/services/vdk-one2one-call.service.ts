@@ -66,4 +66,21 @@ export class VdkOne2OneCallService {
     this.Client.SetMicUnmute();
   }
 
+
+  groupCall(params): void {
+    this.Client.GroupCall(params);
+  }
+
+  joinGroupCall(params): void {
+    this.Client.JoinGroupCall(params);
+  }
+
+  leaveGroupCall(): void {
+    this.Client.LeaveGroupCall();
+  }
+
+  setParticipantVideo(participant, vidio) {
+    this.Client.SetParticipantVideo(participant, vidio);
+  }
+
 }
