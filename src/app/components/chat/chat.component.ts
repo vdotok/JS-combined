@@ -785,12 +785,16 @@ export class ChatComponent implements OnInit {
 
   startM2MVideoCall() {
     if (this.inCall()) return;
+    const p = this.getChatParticipants();
+    if (!p.length) {
+      this.toastr.error('Please select someone to call!', 'Opps!')
+      return;
+    }
     this.screen = 'MAIN';
     this.groupOutgoingVideoCall = true;
     this.calling.templateName = 'groupVideoCall';
     this.calling['callerName'] = this.activeChat.chatTitle;
     this.changeDetector.detectChanges();
-    const p = this.activeChat['participants'].filter(g => g.ref_id != this.currentUserName).map(g => g.ref_id);
     const params = {
       call_type: "video",
       localVideo: document.getElementById("localVideo"),
@@ -848,12 +852,17 @@ export class ChatComponent implements OnInit {
 
   startone2oneAudioCall() {
     if (this.inCall()) return;
+    const participantsList = this.getChatParticipants();
+    if (!participantsList.length) {
+      this.toastr.error('Please select someone to call!', 'Opps!')
+      return;
+    }
     this.calling.session = 'one_to_one';
     this.calling.call_type = 'audio';
     this.screen = 'MAIN';
     this.calling.templateName = 'outgoingAudioCall';
     this.calling.callerName = this.activeChat.chatTitle;
-    const participantsList = this.activeChat['participants'].filter(g => g.ref_id != this.currentUserName).map(g => g.ref_id);
+
     const params = {
       localVideo: document.getElementById("localVideo"),
       remoteVideo: document.getElementById("remoteVideo"),
@@ -864,11 +873,16 @@ export class ChatComponent implements OnInit {
 
   startm2mAudioCall() {
     if (this.inCall()) return;
+    const participants = this.getChatParticipants();
+    if (!participants.length) {
+      this.toastr.error('Please select someone to call!', 'Opps!')
+      return;
+    }
     this.calling.call_type = 'audio';
     this.screen = 'MAIN';
     this.calling.templateName = 'groupOutgoingAudioCall';
     this.calling['callerName'] = this.activeChat.chatTitle;
-    const participants = this.activeChat['participants'].filter(g => g.ref_id != this.currentUserName).map(g => g.ref_id);
+
     const params = {
       call_type: "audio",
       localVideo: document.getElementById("localAudio"),
@@ -977,5 +991,11 @@ export class ChatComponent implements OnInit {
     }
     this.changeDetector.detectChanges();
   }
-
+  private getChatParticipants() {
+    let participants = [];
+    if (this.activeChat && this.activeChat['participants'] && this.activeChat['participants'].length) {
+      participants = this.activeChat['participants'].filter(g => g.ref_id != this.currentUserName).map(g => g.ref_id);
+    }
+    return participants;
+  }
 }

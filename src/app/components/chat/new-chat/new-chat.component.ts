@@ -54,6 +54,10 @@ export class NewChatComponent implements OnInit {
                 condition: "contains",
               }
               return this.svc.post('AllUsers', data).pipe(map(res => {
+                if(!(res.users && res.users.length))
+                {
+                  res.users = [];
+                }
                 this.CopyAllUsers = [...res.users];
                 return res;
               }))
