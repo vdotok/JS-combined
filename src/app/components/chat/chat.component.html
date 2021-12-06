@@ -85,7 +85,7 @@
           </p>
 
         </div>
-        <div style="margin-left: 49em;" *ngIf="calling.templateName =='noCall'">
+        <div *ngIf="calling.templateName =='noCall'">
           <button type="submit" class="btn callButton mr-1" (click)="startAudioCall()">
             <img src="./assets/images/call.png" class="callIcon" />
           </button>
@@ -221,7 +221,7 @@
               Read
               <br />
             </ng-container>
-            <span> {{chat.date | date:"shortTime"}} </span>
+            <span> {{chat.date | date:"shortTime"}}</span>
           </span>
         </div>
 
@@ -366,6 +366,7 @@
 
 <ng-template #groupOngoingAudioCall>
   <div style="border-radius: 0px" class="messagesBox noPadding">
+    <p class="settingsIcon callContainerStatus white m-3">{{ callTime | formatTime }}</p>
     <div class="groupCallContainer">
       <div class="upperVideoContainer">
         <div class="singleParticipantContainer" *ngFor="let user of calling.participant">
@@ -427,7 +428,7 @@
 
 <ng-template #groupVideoCall>
   <div style="border-radius: 0px" class="messagesBox noPadding">
-
+    <p class="settingsIcon callContainerStatus white m-3">{{ callTime | formatTime }}</p>
     <div class="groupCallContainer " [ngClass]="groupOutgoingVideoCall ? 'noCallBackground' : ''">
       <div class="upperVideoContainer">
 

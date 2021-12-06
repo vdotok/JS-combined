@@ -37,6 +37,8 @@ export class ChatComponent implements OnInit {
   @ViewChild('groupIncommingVideoCall') groupIncommingVideoCall: TemplateRef<any>;
   @ViewChild('groupVideoCall') groupVideoCall: TemplateRef<any>;
 
+
+  ongoingCall = false;
   editGroupModel = false;
   groupForm: FormGroup;
   loading = true;
@@ -137,9 +139,16 @@ export class ChatComponent implements OnInit {
     });
 
     this.vdkOne2OneCallSVC.Client.on("call", response => {
-      console.error("call response", response);
+
+      console.error("call response", response) ;
+      console.log("ongoing call" , this.ongoingCall);
+
       switch (response.type) {
         case "CALL_RECEIVED":
+          if(this.ongoingCall){
+            this.vdkOne2OneCallSVC.rejectCall(response.from , false);
+            return;
+          }
           this.calling.session = response.session;
           this.calling.from = response.from;
           this.changeDetector.detectChanges();
@@ -151,6 +160,7 @@ export class ChatComponent implements OnInit {
           this.screen = 'MAIN';
           break;
         case "CALL_ENDED":
+          this.ongoingCall = false;
           this.resetCall();
           break;
         case "MISSED_CALL":
@@ -158,14 +168,18 @@ export class ChatComponent implements OnInit {
           this.toastr.error('You have Missed Call', 'Opps!')
           break;
         case "CALL_REJECTED":
+          this.ongoingCall = false
           this.resetCall();
-          this.toastr.error('User is busy', "Opps!")
+          this.toastr.error('User is busy', "Opps!");
           break;
         case "CALL_ACCEPTED":
-          this.changeDetector.detectChanges();
-          this.calling.templateName = this.calling.call_type == 'video' ? 'VideoCallInProgress' : 'AudioCallInProgress';
-          this.startWatch();
-          this.changeDetector.detectChanges();
+          if (response.to) {
+            this.changeDetector.detectChanges();
+            this.calling.templateName = this.calling.call_type == 'video' ? 'VideoCallInProgress' : 'AudioCallInProgress';
+            this.startWatch();
+            this.changeDetector.detectChanges();
+          }
+
           break;
         case "CALL_STATUS":
           const displaystyle = response.video_status ? 'block' : 'none';
@@ -176,13 +190,14 @@ export class ChatComponent implements OnInit {
       }
     });
 
-    // this.vdkM2MCallSVC.Client.on("connected", response => {
+    // this.vdkM2MCallSVC.Client.on("connected", responses => {
     //   console.error("m2m connected response", response);
     // });
 
     this.vdkOne2OneCallSVC.Client.on("groupCall", response => {
       console.error("groupCall response", response);
       switch (response.type) {
+
         case "CALL_RECEIVED":
           this.screen = 'MAIN'
           this.calling.callerName = this.findUserName(response.from);
@@ -197,6 +212,9 @@ export class ChatComponent implements OnInit {
           break;
         case "PARTICIPANT_LEFT":
           this.removeParticipant(response);
+          break;
+        case "CALL_STARTED":
+          this.startWatch();
           break;
         case "PARTICIPANT_STATUS":
           const displaystyle = response.video_status ? 'block' : 'none';
@@ -508,6 +526,15 @@ export class ChatComponent implements OnInit {
         type: this.getFileType(this.fileToSend),
         date: new Date().getTime(),
       };
+      console.log("file to send", this.fileToSend);
+      const toBase64 = file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+      let base64 = toBase64(this.fileToSend);
+      console.log("base64444", base64);
       this.pubsubService.Client.SendFile(this.fileToSend, option);
       this.fileToSend = null;
     }
@@ -741,9 +768,11 @@ export class ChatComponent implements OnInit {
     }
     if (document.getElementById('OutgoingVideo')) document.getElementById('OutgoingVideo').style.display = 'block';
     this.changeDetector.detectChanges();
+    this.ongoingCall = false;
   }
 
   stopCall() {
+    this.ongoingCall = false;
     this.calling.templateName = 'noCall';
     this.vdkOne2OneCallSVC.endCall();
     this.vdkOne2OneCallSVC.leaveGroupCall();
@@ -759,6 +788,7 @@ export class ChatComponent implements OnInit {
 
 
   startVideoCall() {
+    this.resetCall();
     if (this.activeChat.auto_created) {
       this.startOne2OneVideoCall();
     } else {
@@ -770,7 +800,9 @@ export class ChatComponent implements OnInit {
     if (this.inCall()) return;
     this.calling.session = 'one_to_one';
     document.getElementById('OutgoingVideo').style.display = 'block';
+    this.startWatch();
     this.screen = 'MAIN';
+    this.ongoingCall = true;
     this.calling.templateName = 'outgoingVideoCall';
     this.calling['callerName'] = this.activeChat.chatTitle;
     this.changeDetector.detectChanges();
@@ -790,6 +822,7 @@ export class ChatComponent implements OnInit {
       this.toastr.error('Please select someone to call!', 'Opps!')
       return;
     }
+    this.ongoingCall = true;
     this.screen = 'MAIN';
     this.groupOutgoingVideoCall = true;
     this.calling.templateName = 'groupVideoCall';
@@ -819,17 +852,20 @@ export class ChatComponent implements OnInit {
     this.changeDetector.detectChanges();
     this.calling.templateName = this.calling.call_type == 'video' ? 'VideoCallInProgress' : 'AudioCallInProgress';
     this.startWatch();
+    this.ongoingCall = true;
     this.changeDetector.detectChanges();
   }
 
   acceptM2MCall() {
     if (this.isM2MProgressCall()) return;
+    this.ongoingCall = true;
     this.calling.templateName = this.calling.call_type == 'video' ? 'groupVideoCall' : 'groupOngoingAudioCall';
     this.changeDetector.detectChanges();
     const params = {
       localVideo: document.getElementById("localVideo"),
       call_type: this.calling.call_type
     }
+    this.startWatch();
     this.changeDetector.detectChanges();
     this.groupOutgoingVideoCall = false;
     this.vdkOne2OneCallSVC.joinGroupCall(params);
@@ -837,6 +873,7 @@ export class ChatComponent implements OnInit {
   }
 
   startWatch() {
+    console.trace()
     if (!this.callTime) {
       this.countDownTime = timer(0, 1000).subscribe(() => ++this.callTime);
     }
@@ -859,6 +896,7 @@ export class ChatComponent implements OnInit {
     }
     this.calling.session = 'one_to_one';
     this.calling.call_type = 'audio';
+    this.ongoingCall = true;
     this.screen = 'MAIN';
     this.calling.templateName = 'outgoingAudioCall';
     this.calling.callerName = this.activeChat.chatTitle;
@@ -867,6 +905,7 @@ export class ChatComponent implements OnInit {
       localVideo: document.getElementById("localVideo"),
       remoteVideo: document.getElementById("remoteVideo"),
       to: [...participantsList],
+      data: { calleName: this.currentUserData.full_name }
     }
     this.vdkOne2OneCallSVC.audioCall(params);
   }
@@ -879,6 +918,7 @@ export class ChatComponent implements OnInit {
       return;
     }
     this.calling.call_type = 'audio';
+    this.ongoingCall = true;
     this.screen = 'MAIN';
     this.calling.templateName = 'groupOutgoingAudioCall';
     this.calling['callerName'] = this.activeChat.chatTitle;
@@ -978,17 +1018,22 @@ export class ChatComponent implements OnInit {
     this.changeDetector.detectChanges();
   }
 
+
   removeParticipant(response) {
+    //this.ongoingCall = false;
     const index = this.calling.participant.findIndex(user => user.ref_id == response.participant);
-    const user = this.findUserName(response.participant);
-    if (user) {
-      const textmsg = user + ' ' + 'has left';
-      this.toastr.success(textmsg);
+    if (index >= 0) {
+      const user = this.findUserName(response.participant);
+      if (user) {
+        const textmsg = user + ' ' + 'has left';
+        this.toastr.success(textmsg);
+      }
+      this.calling.participant.splice(index, 1);
+      if (!this.calling.participant.length) {
+        this.resetCall();
+      }
     }
-    this.calling.participant.splice(index, 1);
-    if (!this.calling.participant.length) {
-      this.resetCall();
-    }
+
     this.changeDetector.detectChanges();
   }
   private getChatParticipants() {

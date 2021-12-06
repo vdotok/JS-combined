@@ -40,13 +40,14 @@ export class VdkOne2OneCallService {
     this.Client.AcceptCall(local, remote);
   }
 
-  rejectCall(): void {
-    this.Client.RejectCall();
+  rejectCall(from , val): void {
+    this.Client.RejectCall(from , val);
   }
 
   endCall(): void {
     this.Client.EndCall();
   }
+
 
   cancelCall(): void {
     this.Client.CancelCall();

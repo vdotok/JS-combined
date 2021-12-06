@@ -172,6 +172,7 @@ export class AddGroupComponent implements OnInit {
   addGroup() {
     FormsHandler.validateForm(this.form);
     const useridArray = this.selectedUsers.map(user => user.user_id);
+    console.log("userIdArray" , useridArray);
     if (this.form.invalid || !useridArray.length || this.loading) return;
     if (useridArray.length > 5) {
       this.toastr.error('OPPS!', 'participants Can not be more than 5!');
@@ -201,7 +202,6 @@ export class AddGroupComponent implements OnInit {
       this.loading = false;
     });
   }
-
   closemodel() {
     this.selectedUsers = [];
     this.addGroupModel = false;
