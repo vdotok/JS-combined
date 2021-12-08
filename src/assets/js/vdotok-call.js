@@ -491,9 +491,15 @@ class Client extends events_1.EventEmitter {
         if (!from) {
             from = this.currentFromUser;
         }
+        // var response = {
+        // 	id : 'incomingCallResponse',
+        // 	from : from,
+        // 	callResponse : 'reject',
+        // 	message : 'user declined'
+        // };
         let response = {
+            "requestType": "session_invite",
             "type": "response",
-            "requestType":"session_invite",
             "from": from,
             "requestID": new Date().getTime().toString(),
             "sessionUUID": this.UUIDSessions[from],
@@ -534,6 +540,7 @@ class Client extends events_1.EventEmitter {
         let regMessage = new RegisterModel_1.default();
         regMessage.requestID = new Date().getTime().toString();
         regMessage.projectID = this.projectID;
+        regMessage.tenantID = this.projectID;
         regMessage.referenceID = referenceID;
         regMessage.authorizationToken = authorizationToken;
         regMessage.SendRegisterRequest(this.ws);
@@ -844,7 +851,6 @@ class Client extends events_1.EventEmitter {
     SetMicMute() {
         if (this.localVideo && this.localVideo != undefined) {
             let video = (this.mediaType == "video" && this.videoStatus == 1) ? 1 : 0;
-            console.log("video status" , this.videoStatus);
             this.audioStatus = 0;
             let session = (this.isManyToMany) ? this.callSession : this.UUIDSessions[this.currentFromUser];
             let state = {
@@ -855,7 +861,7 @@ class Client extends events_1.EventEmitter {
                 "mcToken": this.McToken,
                 "referenceID": this.currentUser,
                 "audioInformation": this.audioStatus,
-                "videoInformation": this.videoStatus
+                "videoInformation": this.videoStatus //TODO  this.mediaType this variable become undefined or null sometimes in case of video call
             };
             this.SendPacket(state);
             if (this.localVideo.srcObject != null)
@@ -881,7 +887,7 @@ class Client extends events_1.EventEmitter {
                 "mcToken": this.McToken,
                 "referenceID": this.currentUser,
                 "audioInformation": this.audioStatus,
-                "videoInformation": this.videoStatus
+                "videoInformation": video
             };
             this.SendPacket(state);
             if (this.localVideo.srcObject != null)
@@ -7620,6 +7626,7 @@ class ManyToMany extends events_1.EventEmitter {
         this.currentUser = referenceID;
         let regMessage = new RegisterModel_1.default();
         regMessage.requestID = new Date().getTime().toString();
+        regMessage.projectID = this.projectID;
         regMessage.tenantID = this.projectID;
         regMessage.referenceID = referenceID;
         regMessage.authorizationToken = authorizationToken;

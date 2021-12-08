@@ -201,7 +201,6 @@ class Client extends events__WEBPACK_IMPORTED_MODULE_0__["EventEmitter"] {
         this.projectID = options.projectID;
         if (options.host) {
             this.Host = options.host;
-            this.emit("authenticated", {});
         }
         else {
             this.Authentication();
@@ -436,7 +435,7 @@ class Client extends events__WEBPACK_IMPORTED_MODULE_0__["EventEmitter"] {
      * @private method for emitting file message
      */
     SetFileLoadingMessage(packet) {
-        const message = new _Modals_MessageModel__WEBPACK_IMPORTED_MODULE_3__["default"]();
+        let message = new _Modals_MessageModel__WEBPACK_IMPORTED_MODULE_3__["default"]();
         message.content = "";
         message.type = packet.type;
         message.size = packet.size;
@@ -573,7 +572,7 @@ class Client extends events__WEBPACK_IMPORTED_MODULE_0__["EventEmitter"] {
         if (this.pingWorker) {
             // event processing
             this.pingWorker.onmessage = (e) => {
-                if (e && e.data && e.data.sendPing) {
+                if (e && e.data && e.data.sendPing && this.Connection) {
                     this.Connection._checkPing();
                 }
                 else {
@@ -1089,34 +1088,34 @@ const FileTypes = {
 class File {
     constructor() { }
     SendFile(file, params, instance) {
-        const fileOjbect = Object(_Helpers_ArrayHelper__WEBPACK_IMPORTED_MODULE_0__["GetFileObject"])(file);
+        let fileOjbect = Object(_Helpers_ArrayHelper__WEBPACK_IMPORTED_MODULE_0__["GetFileObject"])(file);
         //console.log("===PEEE===Jaon===",fileOjbect);
         Object(_Helpers_ArrayHelper__WEBPACK_IMPORTED_MODULE_0__["GetBinaryArrayOfFile"])(fileOjbect.file, fileOjbect.fileType).then((binArray) => {
             //console.log("===PEEE===Jaon===",binArray.length,binArray);
-            const fileSize = binArray.length;
-            const newParams = Object.assign(Object.assign(Object.assign({}, params), fileOjbect), { size: fileSize });
+            let fileSize = binArray.length;
+            let newParams = Object.assign(Object.assign(Object.assign({}, params), fileOjbect), { size: fileSize });
             let chunkArray = [];
-            const limit = 12000;
+            let limit = 12000; //if we use 2000 limit it gives currpt file
             if (fileSize > limit) {
                 chunkArray = Object(_Helpers_ArrayHelper__WEBPACK_IMPORTED_MODULE_0__["MakeChunkArray"])(binArray, limit);
                 newParams.totalPacket = chunkArray.length;
-                const headerID = this.SendHeaderFirst(newParams, instance);
+                let headerID = this.SendHeaderFirst(newParams, instance);
                 chunkArray.forEach((bytes, index) => {
-                    const chunkNo = index + 1;
+                    let chunkNo = index + 1;
                     this.SendChunkPacket(bytes, headerID, chunkNo, params, instance);
                 });
             }
             else {
-                const headerParams = Object.assign(Object.assign({}, newParams), { totalPacket: 1 });
-                const headerID = this.SendHeaderFirst(headerParams, instance);
+                let headerParams = Object.assign(Object.assign({}, newParams), { totalPacket: 1 });
+                let headerID = this.SendHeaderFirst(headerParams, instance);
                 this.SendChunkPacket(binArray, headerID, 1, headerParams, instance);
             }
         });
     }
     SendHeaderFirst(params, instance) {
         // console.log("SendHeaderFirst",params);
-        const fileHeader = new _Modals_FileHeaderModel__WEBPACK_IMPORTED_MODULE_1__["default"]();
-        const headerId = params.id;
+        let fileHeader = new _Modals_FileHeaderModel__WEBPACK_IMPORTED_MODULE_1__["default"]();
+        let headerId = params.id;
         fileHeader.from = params.from;
         fileHeader.fileExtension = params.ext;
         fileHeader.headerId = headerId;
@@ -1135,7 +1134,7 @@ class File {
         console.log("Binarray Normal== ", bin);
         //bin=JSON.stringify(normalArray);
         // console.log("Binarray2== ",bin);
-        const fileMessageModel = new _Modals_FileMessageModel__WEBPACK_IMPORTED_MODULE_2__["default"]();
+        let fileMessageModel = new _Modals_FileMessageModel__WEBPACK_IMPORTED_MODULE_2__["default"]();
         fileMessageModel.messageId = Object(_Helpers_ArrayHelper__WEBPACK_IMPORTED_MODULE_0__["GetUUID"])();
         fileMessageModel.content = bin;
         fileMessageModel.packetNo = packetNo;
@@ -1147,11 +1146,11 @@ class File {
         fileMessageModel.Send(instance.Connection);
     }
     MapHeaderPacket(packet) {
-        const fileHeader = new _Modals_FileHeaderModel__WEBPACK_IMPORTED_MODULE_1__["default"]();
+        let fileHeader = new _Modals_FileHeaderModel__WEBPACK_IMPORTED_MODULE_1__["default"]();
         return fileHeader.MapHeader(packet);
     }
     MapFileMessagePacket(packet) {
-        const fileMessage = new _Modals_FileMessageModel__WEBPACK_IMPORTED_MODULE_2__["default"]();
+        let fileMessage = new _Modals_FileMessageModel__WEBPACK_IMPORTED_MODULE_2__["default"]();
         return fileMessage.MapMessage(packet);
     }
     SetMessagePacket(packet, instance) { }
@@ -1186,7 +1185,7 @@ __webpack_require__.r(__webpack_exports__);
 //       var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
 //       return v.toString(16).toUpperCase();
 //   });
-// }
+// } 
 function GetUUID() {
     return new Date().getTime().toString();
 }
@@ -1198,14 +1197,14 @@ function ReadFileToUnInt8Array(file) {
             let array = new Uint8Array(arrayBuffer);
             resolve(array);
         };
-        reader.onerror = (err) => reject(err);
+        reader.onerror = err => reject(err);
         reader.readAsArrayBuffer(file);
     });
 }
 function Base64ToUnInt8Array(base64) {
-    base64 = base64.substr(base64.indexOf(",") + 1);
+    base64 = base64.substr(base64.indexOf(',') + 1);
     return new Promise((resolve, reject) => {
-        let dataUrl = "data:application/octet-binary;base64," + base64;
+        var dataUrl = "data:application/octet-binary;base64," + base64;
         //console.log("helo Base String==:: ",base64);
         fetch(dataUrl)
             .then((res) => res.arrayBuffer())
@@ -1220,10 +1219,10 @@ function NewBase64ToUInt8Array(str) {
 async function GetBinaryArrayOfFile(File, FileType) {
     let Int8Array;
     switch (FileType) {
-        case "File":
+        case 'File':
             Int8Array = await ReadFileToUnInt8Array(File);
             break;
-        case "Base64":
+        case 'Base64':
             Int8Array = await Base64ToUnInt8Array(File);
             BufferToBase64Async(Int8Array);
             // Int8Array= await ConvertStrUTF8(File);
@@ -1237,26 +1236,26 @@ async function GetBinaryArrayOfFile(File, FileType) {
 function IsBase64(encodedString) {
     //var regexBase64 = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
     // return regexBase64.test(encodedString);
-    return typeof encodedString == "string" && encodedString.includes(";base64");
+    return (typeof encodedString == "string" && encodedString.indexOf(";base64") > -1);
 }
 function GetFileObject(file) {
     let fileObj = { fileType: "", file: "", ext: "" };
     if (IsBase64(file)) {
         fileObj.fileType = "Base64";
         fileObj.file = file;
-        fileObj.ext = file.substring(file.indexOf("/") + 1, file.indexOf(";base64"));
+        fileObj.ext = file.substring(file.indexOf('/') + 1, file.indexOf(';base64'));
     }
     else {
         if (typeof file == "object") {
             if (file[0] != undefined) {
                 fileObj.fileType = "File";
                 fileObj.file = file[0];
-                fileObj.ext = file[0].name.split(".").pop();
+                fileObj.ext = file[0].name.split('.').pop();
             }
             if (file["name"] != undefined) {
                 fileObj.fileType = "File";
                 fileObj.file = file;
-                fileObj.ext = file.name.split(".").pop();
+                fileObj.ext = file.name.split('.').pop();
             }
         }
     }
@@ -1288,23 +1287,22 @@ function ConvertJsonUTF8(object) {
     //return new TextEncoder().encode(JSON.stringify(object))
 }
 function ConvertStrUTF8(str) {
-    return new TextEncoder().encode(str);
+    return new TextEncoder().encode((str));
 }
 function TextEncoderUTF8(str) {
     "use strict";
-    const Len = str.length;
-    let resPos = -1;
+    var Len = str.length, resPos = -1;
     // The Uint8Array's length must be at least 3x the length of the string because an invalid UTF-16
     //  takes up the equivelent space of 3 UTF-8 characters to encode it properly. However, Array's
     //  have an auto expanding length and 1.5x should be just the right balance for most uses.
-    let resArr = typeof Uint8Array === "undefined" ? new Array(Len * 1.5) : new Uint8Array(Len * 3);
-    for (let point = 0, nextcode = 0, i = 0; i !== Len;) {
-        (point = str.charCodeAt(i)), (i += 1);
+    var resArr = typeof Uint8Array === "undefined" ? new Array(Len * 1.5) : new Uint8Array(Len * 3);
+    for (var point = 0, nextcode = 0, i = 0; i !== Len;) {
+        point = str.charCodeAt(i), i += 1;
         if (point >= 0xD800 && point <= 0xDBFF) {
             if (i === Len) {
-                resArr[(resPos += 1)] = 0xef /*0b11101111*/;
-                resArr[(resPos += 1)] = 0xbf /*0b10111111*/;
-                resArr[(resPos += 1)] = 0xbd /*0b10111101*/;
+                resArr[resPos += 1] = 0xef /*0b11101111*/;
+                resArr[resPos += 1] = 0xbf /*0b10111111*/;
+                resArr[resPos += 1] = 0xbd /*0b10111101*/;
                 break;
             }
             // https://mathiasbynens.be/notes/javascript-encoding#surrogate-formulae
@@ -1313,31 +1311,31 @@ function TextEncoderUTF8(str) {
                 point = (point - 0xD800) * 0x400 + nextcode - 0xDC00 + 0x10000;
                 i += 1;
                 if (point > 0xffff) {
-                    resArr[(resPos += 1)] = (0x1e /*0b11110*/ << 3) | (point >>> 18);
-                    resArr[(resPos += 1)] = (0x2 /*0b10*/ << 6) | ((point >>> 12) & 0x3f) /*0b00111111*/;
-                    resArr[(resPos += 1)] = (0x2 /*0b10*/ << 6) | ((point >>> 6) & 0x3f) /*0b00111111*/;
-                    resArr[(resPos += 1)] = (0x2 /*0b10*/ << 6) | (point & 0x3f) /*0b00111111*/;
+                    resArr[resPos += 1] = (0x1e /*0b11110*/ << 3) | (point >>> 18);
+                    resArr[resPos += 1] = (0x2 /*0b10*/ << 6) | ((point >>> 12) & 0x3f /*0b00111111*/);
+                    resArr[resPos += 1] = (0x2 /*0b10*/ << 6) | ((point >>> 6) & 0x3f /*0b00111111*/);
+                    resArr[resPos += 1] = (0x2 /*0b10*/ << 6) | (point & 0x3f /*0b00111111*/);
                     continue;
                 }
             }
             else {
-                resArr[(resPos += 1)] = 0xef /*0b11101111*/;
-                resArr[(resPos += 1)] = 0xbf /*0b10111111*/;
-                resArr[(resPos += 1)] = 0xbd /*0b10111101*/;
+                resArr[resPos += 1] = 0xef /*0b11101111*/;
+                resArr[resPos += 1] = 0xbf /*0b10111111*/;
+                resArr[resPos += 1] = 0xbd /*0b10111101*/;
                 continue;
             }
         }
         if (point <= 0x007f) {
-            resArr[(resPos += 1)] = (0x0 /*0b0*/ << 7) | point;
+            resArr[resPos += 1] = (0x0 /*0b0*/ << 7) | point;
         }
         else if (point <= 0x07ff) {
-            resArr[(resPos += 1)] = (0x6 /*0b110*/ << 5) | (point >>> 6);
-            resArr[(resPos += 1)] = (0x2 /*0b10*/ << 6) | (point & 0x3f) /*0b00111111*/;
+            resArr[resPos += 1] = (0x6 /*0b110*/ << 5) | (point >>> 6);
+            resArr[resPos += 1] = (0x2 /*0b10*/ << 6) | (point & 0x3f /*0b00111111*/);
         }
         else {
-            resArr[(resPos += 1)] = (0xe /*0b1110*/ << 4) | (point >>> 12);
-            resArr[(resPos += 1)] = (0x2 /*0b10*/ << 6) | ((point >>> 6) & 0x3f) /*0b00111111*/;
-            resArr[(resPos += 1)] = (0x2 /*0b10*/ << 6) | (point & 0x3f) /*0b00111111*/;
+            resArr[resPos += 1] = (0xe /*0b1110*/ << 4) | (point >>> 12);
+            resArr[resPos += 1] = (0x2 /*0b10*/ << 6) | ((point >>> 6) & 0x3f /*0b00111111*/);
+            resArr[resPos += 1] = (0x2 /*0b10*/ << 6) | (point & 0x3f /*0b00111111*/);
         }
     }
     if (typeof Uint8Array !== "undefined")
@@ -1347,21 +1345,20 @@ function TextEncoderUTF8(str) {
     return resArr;
 }
 function BufferToBase64Async(buffer) {
-    let blob = new Blob([buffer], { type: "application/octet-binary" });
+    var blob = new Blob([buffer], { type: 'application/octet-binary' });
     //  console.log("buffer to blob:" + blob)
     return new Promise((resolve, reject) => {
         let fileReader = new FileReader();
         fileReader.onload = function () {
             let dataUrl = fileReader.result;
             // console.log("blob to dataUrl: " + dataUrl);
-            let base64 = dataUrl.substr(dataUrl.indexOf(",") + 1);
+            let base64 = dataUrl.substr(dataUrl.indexOf(',') + 1);
             resolve(base64);
         };
         fileReader.readAsDataURL(blob);
     });
 }
 function ByteToBase64(bytes) {
-    //something
 }
 
 
@@ -1782,34 +1779,33 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _Modals_FileExtensionSchema__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(16);
 
 function BufferToBase64Async(buffer, ext) {
-  const uint8Array = new Uint8Array(buffer);
-  var blob = new Blob([uint8Array], { type: 'application/octet-binary' });
-  //  console.log("buffer to blob:" + blob)
-  return new Promise((resolve, reject) => {
-      let fileReader = new FileReader();
-      fileReader.onload = function () {
-          let dataUrl = fileReader.result;
-          // console.log("blob to dataUrl: " + dataUrl);
-          let base64 = dataUrl.substr(dataUrl.indexOf(',') + 1);
-          let mimeType = _Modals_FileExtensionSchema__WEBPACK_IMPORTED_MODULE_0__["default"][ext];
-          let completeFile = `data:${mimeType};base64,${base64}`;
-          //  console.log("completeFile: " , completeFile);
-          resolve(completeFile);
-      };
-      fileReader.readAsDataURL(blob);
-  });
-
+    const uint8Array = new Uint8Array(buffer);
+    let blob = new Blob([uint8Array], { type: "application/octet-binary" });
+    //  console.log("buffer to blob:" + blob)
+    return new Promise((resolve, reject) => {
+        let fileReader = new FileReader();
+        fileReader.onload = function () {
+            let dataUrl = fileReader.result;
+            // console.log("blob to dataUrl: " + dataUrl);
+            let base64 = dataUrl.substr(dataUrl.indexOf(",") + 1);
+            let mimeType = _Modals_FileExtensionSchema__WEBPACK_IMPORTED_MODULE_0__["default"][ext];
+            let completeFile = `data:${mimeType};base64,${base64}`;
+            //  console.log("completeFile: " , completeFile);
+            resolve(completeFile);
+        };
+        fileReader.readAsDataURL(blob);
+    });
 }
 function ArrayBase64ToStringBase64Async(buffer, ext) {
-  return new Promise((resolve, reject) => {
-      console.log("completeFile buffer: ", buffer);
-      let base64 = buffer.join("");
-      ext = ext.toLowerCase();
-      let mimeType = _Modals_FileExtensionSchema__WEBPACK_IMPORTED_MODULE_0__["default"][ext];
-      let completeFile = `data:${mimeType};base64,${base64}`;
-      //  console.log("completeFile: " , completeFile);
-      resolve(completeFile);
-  });
+    return new Promise((resolve, reject) => {
+        console.log("completeFile buffer: ", buffer);
+        let base64 = buffer.join("");
+        ext = ext.toLowerCase();
+        let mimeType = _Modals_FileExtensionSchema__WEBPACK_IMPORTED_MODULE_0__["default"][ext];
+        let completeFile = `data:${mimeType};base64,${base64}`;
+        //  console.log("completeFile: " , completeFile);
+        resolve(completeFile);
+    });
 }
 
 
