@@ -24,6 +24,7 @@ import { VdkOne2OneCallService } from 'src/app/shared/services/vdk-one2one-call.
 })
 export class ChatComponent implements OnInit {
   @ViewChild('noCall') noCall: TemplateRef<any>;
+  @ViewChild('chatDuringCall') chatDuringCall: TemplateRef<any>;
   @ViewChild('incommingAudioCall') incommingAudioCall: TemplateRef<any>;
   @ViewChild('outgoingAudioCall') outgoingAudioCall: TemplateRef<any>;
   @ViewChild('AudioCallInProgress') AudioCallInProgress: TemplateRef<any>;
@@ -60,6 +61,7 @@ export class ChatComponent implements OnInit {
   sdkconnected = false;
   setToActive = null;
   countDownTime: Subscription;
+  showChat: true;
   callTime = 0;
   groupOutgoingVideoCall = false;
   calling = {
@@ -211,6 +213,10 @@ export class ChatComponent implements OnInit {
           this.addParticipant(response);
           break;
         case "PARTICIPANT_LEFT":
+          document.getElementById("sendInputContainer").style.display = 'flex';
+          document.getElementById('roomNameText').style.display = "block";
+          document.getElementById('appendChatDuringCall').style.display = "none";
+          document.getElementById('returnedtocall').style.display = "none";
           this.removeParticipant(response);
           break;
         case "CALL_STARTED":
@@ -223,7 +229,10 @@ export class ChatComponent implements OnInit {
       }
     });
   }
-
+  meriMarzi()
+  {
+    return true;
+  }
   ngAfterViewInit(): void {
     document.addEventListener("keyup", event => {
       if (event.code === 'Enter') {
@@ -445,7 +454,23 @@ export class ChatComponent implements OnInit {
     this.readsendMessage(group.chatHistory);
     this.changeDetector.detectChanges();
   }
-
+  setChatDuringCall(){
+    console.log("active chat" , this.activeChat);
+    document.getElementById("returnedtocall").style.display = 'flex';
+    document.getElementById('messagesBox').style.display = 'none';
+    document.getElementById('appendChatDuringCall').style.display = "block";
+    let el = document.getElementById("sendInputContainer");
+    el.removeAttribute('hidden');
+    document.getElementById("sendInputContainer").style.display = 'flex';
+    document.getElementById('roomNameText').style.display = "block";
+  }
+  returntoCall(){
+    document.getElementById('appendChatDuringCall').style.display = "none";
+    document.getElementById('returnedtocall').style.display = "none";
+    document.getElementById('messagesBox').style.display = 'block';
+    document.getElementById('roomNameText').style.display = "none";
+    document.getElementById("sendInputContainer").style.display = 'none';
+  }
   setchat(chat) {
     this.setToActive = chat.id;
   }
@@ -749,6 +774,11 @@ export class ChatComponent implements OnInit {
 
 
   resetCall() {
+    document.getElementById("sendInputContainer").style.display = 'flex';
+    document.getElementById('roomNameText').style.display = "block";
+    document.getElementById('appendChatDuringCall').style.display = "none";
+    document.getElementById('returnedtocall').style.display = "none";
+
     this.settings = {
       isOnInProgressCamara: true,
       isOnInProgressMicrophone: true
@@ -770,8 +800,11 @@ export class ChatComponent implements OnInit {
     this.changeDetector.detectChanges();
     this.ongoingCall = false;
   }
-
   stopCall() {
+    document.getElementById("sendInputContainer").style.display = 'flex';
+    document.getElementById('roomNameText').style.display = "block";
+    document.getElementById('appendChatDuringCall').style.display = "none";
+    document.getElementById('returnedtocall').style.display = "none";
     this.ongoingCall = false;
     this.calling.templateName = 'noCall';
     this.vdkOne2OneCallSVC.endCall();
@@ -784,9 +817,6 @@ export class ChatComponent implements OnInit {
   inCall(): boolean {
     return this.calling.templateName != 'noCall';
   }
-
-
-
   startVideoCall() {
     this.resetCall();
     if (this.activeChat.auto_created) {
@@ -795,7 +825,6 @@ export class ChatComponent implements OnInit {
       this.startM2MVideoCall();
     }
   }
-
   startOne2OneVideoCall() {
     if (this.inCall()) return;
     this.calling.session = 'one_to_one';

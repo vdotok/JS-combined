@@ -202,6 +202,7 @@ class Client extends events_1.EventEmitter {
         }
     }
     Connect(mediaServer) {
+        console.log('media server: ', mediaServer);
         var webSocketConnetion = new WebSocket(mediaServer);
         webSocketConnetion.onmessage = (message) => {
             var messageData = JSON.parse(message.data);
@@ -1856,6 +1857,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 class RegisterEventHandlerService {
     constructor() { }
     SetRegisterResponse(resMessage, instance) {
+        console.log("resmesg" , resMessage , instance);
         switch (resMessage.responseCode) {
             case 200:
                 instance.McToken = resMessage.mcToken;

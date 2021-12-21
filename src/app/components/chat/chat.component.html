@@ -80,10 +80,12 @@
       <div class="d-flex">
         <div style="display: flex;flex-direction: row;align-items: center">
           <img src="./assets/images/arrow-left.png" class="arrowLeft hand" (click)="backScreen()" *ngIf="isMobile()" />
-          <p class="roomNameText text-capitalize" *ngIf="activeChat.chatTitle && calling.templateName =='noCall'">
+          <p id="roomNameText" class="roomNameText text-capitalize" *ngIf="activeChat.chatTitle">
             {{activeChat.chatTitle}}
           </p>
-
+          <button style="display: none; margin-left: 20px; margin-bottom: 5px;" class="btn btn-success" id="returnedtocall" (click)="returntoCall()">
+            <p style="margin: 0px; padding: 0px; border: 0;"  >return to Call</p>
+          </button>
         </div>
         <div *ngIf="calling.templateName =='noCall'">
           <button type="submit" class="btn callButton mr-1" (click)="startAudioCall()">
@@ -97,13 +99,12 @@
     </div>
 
     <!-- right side starts -->
-    <div class="messagesBox" [ngClass]="calling.templateName == 'noCall' ? 'messagesBox' :''"
+    <div id="messagesBox" class="messagesBox" [ngClass]="calling.templateName == 'noCall' ? 'messagesBox' :''"
       *ngIf="isShowOne2oneCall()">
-      <div [ngClass]="calling.templateName == 'noCall' ? '' :'callContainer oncall' ">
-        <div>
-          <div [hidden]="isShowRemoteVideo()"
+      <div  [ngClass]="calling.templateName == 'noCall' ? '' :'callContainer oncall' ">
+          <div class="IncommingVideo border VideoCallBlock"  [hidden]="isShowRemoteVideo()"
             [ngClass]="isShowRemoteVideo() ? 'IncommingVideo border VideoCallBlock' : ''">
-            <video id="remoteVideo" muted style="object-fit: fill" autoplay poster="./assets/images/vidd.mp4">
+            <video class="IncommingVideo" id="remoteVideo" muted style="object-fit: fill;position:absolute;left:0;" autoplay poster="./assets/images/vidd.mp4">
               <source src="" type="video/mp4" />
             </video>
           </div>
@@ -112,14 +113,15 @@
               <source src="" type="video/mp4" />
             </video>
           </div>
-        </div>
-        <ng-container [ngTemplateOutlet]="selectedTemplate"></ng-container>
+        <ng-container [ngTemplateOutlet]="selectedTemplate" *ngIf="isShowOne2oneCall()"></ng-container>
       </div>
     </div>
 
     <ng-container [ngTemplateOutlet]="selectedTemplate" *ngIf="isShowM2MCall()"></ng-container>
+    <ng-container [ngTemplateOutlet]="chatDuringCall" *ngIf="meriMarzi()"></ng-container>
+    
 
-    <div class="sendInputContainer" [hidden]="!activeChat.chatTitle || calling.templateName != 'noCall'">
+    <div id="sendInputContainer" class="sendInputContainer" [hidden]="!activeChat.chatTitle || calling.templateName != 'noCall'">
       <div class="sendInputWrapper">
 
         <ng-container *ngIf="fileToSend">
@@ -327,11 +329,13 @@
     <img src="./assets/images/decline-button.png" class="responseButtonImg" (click)="stopCall()" />
     <img src="./assets/images/microphone-{{ settings.isOnInProgressMicrophone ? 'on.png' :'off.png'}}"
       class="responseButtonImg" (click)="changeSettings('isOnInProgressMicrophone')" />
+      <img (click)="setChatDuringCall()" style="z-index: 10000;cursor:pointer" src="./assets/images/chat.png" class="callicon" />
+
   </div>
 </ng-template>
 
 <ng-template #groupIncommingAudioCall>
-  <div class="messagesBox">
+  <div class="messagesBox" id="messagesBox">
     <div class="callContainer">
       <audio id="audiotag1" autoplay src="./assets/images/calling_you.mp3" preload="auto"></audio>
       <p class="callContainerStatus">Incomming Call From</p>
@@ -349,7 +353,7 @@
 </ng-template>
 
 <ng-template #groupOutgoingAudioCall>
-  <div class="messagesBox">
+  <div class="messagesBox" id="messagesBox">
     <div class="callContainer">
       <p class="callContainerStatus">Calling</p>
       <p class="callerName text-capitalize">{{ calling.callerName }} </p>
@@ -365,7 +369,7 @@
 </ng-template>
 
 <ng-template #groupOngoingAudioCall>
-  <div style="border-radius: 0px" class="messagesBox noPadding">
+  <div style="border-radius: 0px" class="messagesBox noPadding" >
     <p class="settingsIcon callContainerStatus white m-3">{{ callTime | formatTime }}</p>
     <div class="groupCallContainer">
       <div class="upperVideoContainer">
@@ -397,6 +401,8 @@
             <img src="./assets/images/microphone-{{ settings.isOnInProgressMicrophone ? 'on.png' :'off.png'}}"
               class="responseButtonImg" (click)="changeSettings('isOnInProgressMicrophone')" />
             <!-- <img src="./assets/images/speaker-on.png" class="responseButtonImg" /> -->
+            <img (click)="setChatDuringCall()" style="z-index: 10000;cursor: pointer;" src="./assets/images/chat.png" class="callicon" />
+
           </div>
         </div>
 
@@ -408,7 +414,7 @@
 <!-- video call -->
 
 <ng-template #groupIncommingVideoCall>
-  <div class="messagesBox">
+  <div class="messagesBox" id="messagesBox">
     <div class="callContainer">
       <audio id="audiotag1" autoplay src="./assets/images/calling_you.mp3" preload="auto"></audio>
       <p class="callContainerStatus">Incomming Call From</p>
@@ -425,11 +431,85 @@
   </div>
 </ng-template>
 
+<ng-template #chatDuringCall >
+  <div id="appendChatDuringCall">
+    <ng-container *ngIf="activeChat.chatTitle">
+      <ng-container *ngFor="let chat of activeChat['chatHistory']">
+        <div [ngClass]="chat.from == currentUserName ? 'senderChatContainer' :'receiverChatContainer'">
+  
+          <h4 class="msgBy text-capitalize" *ngIf="chat.from != currentUserName">{{chat.messageBy}}</h4>
+          <!-- first messgae from same person -->
+          <div class="bubbleContainer">
+  
+            <div class="bubble" *ngIf="chat.type =='text'">
+              <p class="msgText">{{chat.content}}</p>
+            </div>
+  
+            <div class="imgbubble" *ngIf="chat.type =='image'">
+              <mat-spinner [diameter]="30" *ngIf="!chat.content"></mat-spinner>
+              <img [src]="chat.content | safeUrl" class="w-100 msgImage img-thumbnail img-fluid"
+                (click)="openImage(chat.content)" />
+            </div>
+  
+            <div class="imgbubble file-attachment" *ngIf="chat.type !='text' && chat.type !='image'">
+              <mat-spinner [diameter]="30" *ngIf="!chat.content"></mat-spinner>
+              <ng-container *ngIf="chat.content">
+                <img [src]="checkFileType(chat.content)" class="w-100 msgImage thumbnail img-fluid" />
+                <a [href]="chat.content | safeUrl" download>Download</a>
+              </ng-container>
+            </div>
+  
+            <span class="time">
+              <ng-container *ngIf="chat.readCount && chat.from == currentUserName">
+                Read
+                <br />
+              </ng-container>
+              <span> {{chat.date | date:"shortTime"}}</span>
+            </span>
+          </div>
+  
+        </div>
+      </ng-container>
+    </ng-container>
+  
+    <div class="chatRoomContainer" *ngIf="!activeChat.chatTitle && !loading">
+      <div style="height: 100%;" class="listingContainer">
+        <!-- empty list container start -->
+        <div class="emptyListContainer">
+          <div class="emptyListTop">
+            <div></div>
+            <img src="./assets/images/shipping.png" class="shippingIcon" />
+            <div class="noConvoTextWrapper">
+              <p class="noConvoText">No Conversation Yet</p>
+              <p style="max-width: 200px;" class="noConvoSub">
+                Tap and hold on any message to star it, so you can easily find
+                it later.
+              </p>
+            </div>
+          </div>
+          <div class="emptyListBottom">
+            <button type="submit" class="btn newChatButton" (click)="newChat()">
+              NEW CHAT
+            </button>
+            <button type="submit" class="btn refreshButton" (click)="getAllGroups()">
+              REFRESH
+            </button>
+          </div>
+        </div>
+        <!-- empty list container end -->
+      </div>
+    </div>
+  </div>
+</ng-template>
+
 
 <ng-template #groupVideoCall>
-  <div style="border-radius: 0px" class="messagesBox noPadding">
+  <div id="messagesBox" style="border-radius: 0px;" class="messagesBox noPadding">
     <p class="settingsIcon callContainerStatus white m-3">{{ callTime | formatTime }}</p>
-    <div class="groupCallContainer " [ngClass]="groupOutgoingVideoCall ? 'noCallBackground' : ''">
+    <div id="groupCallContainer" class="groupCallContainer" [ngClass]="groupOutgoingVideoCall ? 'noCallBackground' : ''">
+
+      
+
       <div class="upperVideoContainer">
 
         <div class="conditionalName" *ngIf="groupOutgoingVideoCall">
@@ -479,6 +559,8 @@
             <img src="./assets/images/microphone-{{ settings.isOnInProgressMicrophone ? 'on.png' :'off.png'}}"
               class="responseButtonImg" (click)="changeSettings('isOnInProgressMicrophone')" />
             <!-- <img src="./assets/images/speaker-on.png" class="responseButtonImg" /> -->
+            <img (click)="setChatDuringCall()" style="z-index: 10000; cursor: pointer;" src="./assets/images/chat.png" class="callicon" />
+
           </div>
         </div>
 
