@@ -78,14 +78,24 @@
   <div class="col-sm-8 rightSide" [hidden]="isHideChatScreen()">
     <div class="rightSideHeader alignBottom chatholder">
       <div class="d-flex">
-        <div style="display: flex;flex-direction: row;align-items: center">
-          <img src="./assets/images/arrow-left.png" class="arrowLeft hand" (click)="backScreen()" *ngIf="isMobile()" />
-          <p id="roomNameText" class="roomNameText text-capitalize" *ngIf="activeChat.chatTitle">
-            {{activeChat.chatTitle}}
-          </p>
-          <button style="display: none; margin-left: 20px; margin-bottom: 5px;" class="btn btn-success" id="returnedtocall" (click)="returntoCall()">
-            <p style="margin: 0px; padding: 0px; border: 0;"  >return to Call</p>
-          </button>
+        <div style="display: flex; flex-direction: row; align-items: center">
+          <div style="display: flex; flex-direction: column; ">
+            <img
+              src="./assets/images/arrow-left.png"
+              class="arrowLeft hand"
+              (click)="backScreen()"
+              *ngIf="isMobile()"
+            />
+            <p
+              class="roomNameText text-capitalize"
+              *ngIf="activeChat.chatTitle && calling.templateName == 'noCall'"
+            >
+              {{ activeChat.chatTitle }}
+            </p>
+            <ng-container *ngFor="let group of AllGroups">
+             <span class="misreadMsg" *ngIf="group.userTyping && group.chatTitle == activeChat.chatTitle">{{group?.userTypingContent}}</span>   <!--  typing... -->
+            </ng-container>
+          </div>
         </div>
         <div *ngIf="calling.templateName =='noCall'">
           <button type="submit" class="btn callButton mr-1" (click)="startAudioCall()">
