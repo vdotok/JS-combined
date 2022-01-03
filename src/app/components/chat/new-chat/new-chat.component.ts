@@ -10,6 +10,7 @@ import { PubsubService } from 'src/app/shared/services/pubsub.service';
 import { ToastrService } from 'ngx-toastr';
 import { startWith } from 'rxjs/operators';
 import { of } from 'rxjs';
+import {ChatComponent} from '../chat.component';
 
 @Component({
   selector: 'new-chat',
@@ -34,9 +35,11 @@ export class NewChatComponent implements OnInit {
   }
 
   ngOnInit() {
+
   }
 
   ngAfterViewInit(): void {
+    
     if (this.searchInput) {
       fromEvent(this.searchInput.nativeElement, 'input')
         .pipe(
@@ -94,7 +97,7 @@ export class NewChatComponent implements OnInit {
     this.changeEvent.emit("GROUP");
   }
 
-  startChat(user) {
+  startChat(user , val ) {
     if (this.loading) return;
     this.loading = true;
     let data = {
@@ -113,10 +116,12 @@ export class NewChatComponent implements OnInit {
         data.push(subscribedata)
         this.pubsubService.subscribeToChat(data);
         this.changeEvent.emit("THREAD");
+        v.group.clicked_item = val;
         this.setActiveChat.emit(v.group);
         this.loading = false;
       }
     });
   }
+  
 
 }

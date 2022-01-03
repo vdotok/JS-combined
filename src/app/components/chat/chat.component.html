@@ -87,13 +87,17 @@
               *ngIf="isMobile()"
             />
             <p
+              id="roomNameText"
               class="roomNameText text-capitalize"
-              *ngIf="activeChat.chatTitle && calling.templateName == 'noCall'"
+              *ngIf="activeChat.chatTitle"
             >
               {{ activeChat.chatTitle }}
             </p>
+            <button style="display: none; align-items: center;height: 30px; margin: auto;" class="btn btn-success" id="returnedtocall" (click)="returntoCall()">
+              <p style="margin: 0px; padding: 0px; border: 0;">return to Call</p>
+            </button>
             <ng-container *ngFor="let group of AllGroups">
-             <span class="misreadMsg" *ngIf="group.userTyping && group.chatTitle == activeChat.chatTitle">{{group?.userTypingContent}}</span>   <!--  typing... -->
+              <span class="misreadMsg" *ngIf="group.userTyping && group.chatTitle == activeChat.chatTitle">{{group?.userTypingContent}}</span>   <!--  typing... -->
             </ng-container>
           </div>
         </div>
@@ -112,8 +116,8 @@
     <div id="messagesBox" class="messagesBox" [ngClass]="calling.templateName == 'noCall' ? 'messagesBox' :''"
       *ngIf="isShowOne2oneCall()">
       <div  [ngClass]="calling.templateName == 'noCall' ? '' :'callContainer oncall' ">
-          <div class="IncommingVideo border VideoCallBlock"  [hidden]="isShowRemoteVideo()"
-            [ngClass]="isShowRemoteVideo() ? 'IncommingVideo border VideoCallBlock' : ''">
+          <div style="pointer-events: none;" class="IncommingVideo VideoCallBlock"  [hidden]="isShowRemoteVideo()"
+            [ngClass]="isShowRemoteVideo() ? 'IncommingVideo VideoCallBlock' : ''">
             <video class="IncommingVideo" id="remoteVideo" muted style="object-fit: fill;position:absolute;left:0;" autoplay poster="./assets/images/vidd.mp4">
               <source src="" type="video/mp4" />
             </video>
@@ -133,7 +137,6 @@
 
     <div id="sendInputContainer" class="sendInputContainer" [hidden]="!activeChat.chatTitle || calling.templateName != 'noCall'">
       <div class="sendInputWrapper">
-
         <ng-container *ngIf="fileToSend">
           <div class="w-100">
             <img src="./assets/images/Document.png" class="attachmentItemIcon ml-4" />
@@ -339,7 +342,7 @@
     <img src="./assets/images/decline-button.png" class="responseButtonImg" (click)="stopCall()" />
     <img src="./assets/images/microphone-{{ settings.isOnInProgressMicrophone ? 'on.png' :'off.png'}}"
       class="responseButtonImg" (click)="changeSettings('isOnInProgressMicrophone')" />
-      <img (click)="setChatDuringCall()" style="z-index: 10000;cursor:pointer" src="./assets/images/chat.png" class="callicon" />
+      <img (click)="setChatDuringCall()" style="z-index: 10000;cursor:pointer" src="./assets/images/chat1.png" class="callicon" />
 
   </div>
 </ng-template>
@@ -411,7 +414,7 @@
             <img src="./assets/images/microphone-{{ settings.isOnInProgressMicrophone ? 'on.png' :'off.png'}}"
               class="responseButtonImg" (click)="changeSettings('isOnInProgressMicrophone')" />
             <!-- <img src="./assets/images/speaker-on.png" class="responseButtonImg" /> -->
-            <img (click)="setChatDuringCall()" style="z-index: 10000;cursor: pointer;" src="./assets/images/chat.png" class="callicon" />
+            <img (click)="setChatDuringCall()" style="z-index: 10000;cursor: pointer;" src="./assets/images/chat1.png" class="callicon" />
 
           </div>
         </div>
@@ -569,7 +572,7 @@
             <img src="./assets/images/microphone-{{ settings.isOnInProgressMicrophone ? 'on.png' :'off.png'}}"
               class="responseButtonImg" (click)="changeSettings('isOnInProgressMicrophone')" />
             <!-- <img src="./assets/images/speaker-on.png" class="responseButtonImg" /> -->
-            <img (click)="setChatDuringCall()" style="z-index: 10000; cursor: pointer;" src="./assets/images/chat.png" class="callicon" />
+            <img (click)="setChatDuringCall()" style="z-index: 10000; cursor: pointer;" src="./assets/images/chat1.png" class="callicon" />
 
           </div>
         </div>

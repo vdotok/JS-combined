@@ -888,7 +888,7 @@ class Client extends events_1.EventEmitter {
                 "mcToken": this.McToken,
                 "referenceID": this.currentUser,
                 "audioInformation": this.audioStatus,
-                "videoInformation": video
+                "videoInformation": this.videoStatus
             };
             this.SendPacket(state);
             if (this.localVideo.srcObject != null)
@@ -2606,7 +2606,7 @@ class ManyToManyClass extends events_1.EventEmitter {
                 "mcToken": this.McToken,
                 "referenceID": this.currentUser,
                 "audioInformation": 0,
-                "videoInformation": video
+                "videoInformation": this.videoStatus
             };
             this.SendPacket(state);
             if (this.localVideo.srcObject != null)
@@ -2629,7 +2629,7 @@ class ManyToManyClass extends events_1.EventEmitter {
                 "mcToken": this.McToken,
                 "referenceID": this.currentUser,
                 "audioInformation": 1,
-                "videoInformation": video
+                "videoInformation": this.videoStatus
             };
             this.SendPacket(state);
             if (this.localVideo.srcObject != null)
@@ -7943,7 +7943,7 @@ class ManyToMany extends events_1.EventEmitter {
                 "mcToken": this.McToken,
                 "referenceID": this.currentUser,
                 "audioInformation": 0,
-                "videoInformation": video
+                "videoInformation": this.videoStatus
             };
             this.SendPacket(state);
             if (this.localVideo.srcObject != null)
@@ -7966,7 +7966,7 @@ class ManyToMany extends events_1.EventEmitter {
                 "mcToken": this.McToken,
                 "referenceID": this.currentUser,
                 "audioInformation": 1,
-                "videoInformation": video
+                "videoInformation": this.videoStatus
             };
             this.SendPacket(state);
             if (this.localVideo.srcObject != null)
@@ -8616,7 +8616,7 @@ class Broadcast extends events_1.EventEmitter {
                 "mcToken": this.McToken,
                 "referenceID": this.currentUser,
                 "audioInformation": this.audioStatus,
-                "videoInformation": video
+                "videoInformation": this.videoStatus
             };
             this.SendPacket(state);
             if (this.localVideo.srcObject != null)
@@ -8641,7 +8641,7 @@ class Broadcast extends events_1.EventEmitter {
                 "mcToken": this.McToken,
                 "referenceID": this.currentUser,
                 "audioInformation": this.audioStatus,
-                "videoInformation": video
+                "videoInformation": this.videoStatus
             };
             this.SendPacket(state);
             if (this.localVideo.srcObject != null)

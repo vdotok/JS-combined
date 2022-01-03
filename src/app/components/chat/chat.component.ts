@@ -473,6 +473,12 @@ export class ChatComponent implements OnInit {
   }
   setchat(chat) {
     this.setToActive = chat.id;
+    if(chat.clicked_item == "audio"){
+      this.startone2oneAudioCall();
+    }
+    if(chat.clicked_item == "video"){
+      this.startOne2OneVideoCall();
+    }
   }
 
   readSingleMessage(response, isActiveThread) {
