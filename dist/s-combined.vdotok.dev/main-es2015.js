@@ -2243,6 +2243,7 @@ class ChatComponent {
         document.getElementById("sendInputContainer").style.display = 'none';
     }
     setchat(chat) {
+        this.setActiveChat(chat);
         this.setToActive = chat.id;
         if (chat.clicked_item == "audio") {
             this.startone2oneAudioCall();
@@ -2598,7 +2599,8 @@ class ChatComponent {
         this.screen = 'MAIN';
         this.ongoingCall = true;
         this.calling.templateName = 'outgoingVideoCall';
-        this.calling['callerName'] = this.activeChat.chatTitle;
+        // this.calling['callerName'] = this.activeChat.chatTitle;
+        this.calling.callerName = this.activeChat.chatTitle ? this.activeChat.chatTitle : this.activeChat.group_title;
         this.changeDetector.detectChanges();
         const participantsList = this.activeChat.participants.filter(g => g.ref_id != this.currentUserName).map(g => g.ref_id);
         const params = {
@@ -2691,7 +2693,7 @@ class ChatComponent {
         this.ongoingCall = true;
         this.screen = 'MAIN';
         this.calling.templateName = 'outgoingAudioCall';
-        this.calling.callerName = this.activeChat.chatTitle;
+        this.calling.callerName = this.activeChat.chatTitle ? this.activeChat.chatTitle : this.activeChat.group_title;
         const params = {
             localVideo: document.getElementById("localVideo"),
             remoteVideo: document.getElementById("remoteVideo"),

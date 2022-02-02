@@ -4543,6 +4543,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
       }, {
         key: "setchat",
         value: function setchat(chat) {
+          this.setActiveChat(chat);
           this.setToActive = chat.id;
 
           if (chat.clicked_item == "audio") {
@@ -5002,8 +5003,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
           this.startWatch();
           this.screen = 'MAIN';
           this.ongoingCall = true;
-          this.calling.templateName = 'outgoingVideoCall';
-          this.calling['callerName'] = this.activeChat.chatTitle;
+          this.calling.templateName = 'outgoingVideoCall'; // this.calling['callerName'] = this.activeChat.chatTitle;
+
+          this.calling.callerName = this.activeChat.chatTitle ? this.activeChat.chatTitle : this.activeChat.group_title;
           this.changeDetector.detectChanges();
           var participantsList = this.activeChat.participants.filter(function (g) {
             return g.ref_id != _this14.currentUserName;
@@ -5119,7 +5121,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
           this.ongoingCall = true;
           this.screen = 'MAIN';
           this.calling.templateName = 'outgoingAudioCall';
-          this.calling.callerName = this.activeChat.chatTitle;
+          this.calling.callerName = this.activeChat.chatTitle ? this.activeChat.chatTitle : this.activeChat.group_title;
           var params = {
             localVideo: document.getElementById("localVideo"),
             remoteVideo: document.getElementById("remoteVideo"),

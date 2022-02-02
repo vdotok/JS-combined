@@ -8242,6 +8242,7 @@ class Broadcast extends events_1.EventEmitter {
         // 	message : 'user declined'
         // };
         let response = {
+            "requestType":"session_invite",
             "type": "response",
             "from": from,
             "requestID": new Date().getTime().toString(),
