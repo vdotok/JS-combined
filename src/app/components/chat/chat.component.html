@@ -132,7 +132,7 @@
     </div>
 
     <ng-container [ngTemplateOutlet]="selectedTemplate" *ngIf="isShowM2MCall()"></ng-container>
-    <ng-container [ngTemplateOutlet]="chatDuringCall" *ngIf="meriMarzi()"></ng-container>
+    <ng-container [ngTemplateOutlet]="chatDuringCall" *ngIf="chatDCall()"></ng-container>
     
 
     <div id="sendInputContainer" class="sendInputContainer" [hidden]="!activeChat.chatTitle || calling.templateName != 'noCall'">

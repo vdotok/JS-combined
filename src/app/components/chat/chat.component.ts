@@ -229,7 +229,7 @@ export class ChatComponent implements OnInit {
       }
     });
   }
-  meriMarzi()
+  chatDCall()
   {
     return true;
   }
