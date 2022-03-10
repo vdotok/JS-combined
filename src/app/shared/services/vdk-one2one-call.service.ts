@@ -7,7 +7,6 @@ export class VdkOne2OneCallService {
   @Output() public Client: any;
 
   constructor() { }
-
   public initConfigure(): void {
     const user = StorageService.getUserData();
     this.Client = new CVDOTOK.Client({
