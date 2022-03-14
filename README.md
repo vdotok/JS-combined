@@ -2,7 +2,7 @@
 This is a demo project to demonstrate “Chat” using Angular 9+.
 
 ## Live Demo
-Click <a href="https://chat.vdotok.com" target="_blank" title="Chat Demo">here</a> to visit the live demo of VdoTok JS WebApp.
+Click <a href="https://combined.vdotok.com" target="_blank" title="Chat Demo">here</a> to visit the live demo of VdoTok JS WebApp.
  
   
   
@@ -22,15 +22,21 @@ We recommend [nvm](https://github.com/creationix/nvm) for managing multiple vers
 
 Register at <a href="https://userpanel.vdotok.com/overview" target="_blank">VdoTok</a> to get **Authentication Token** and **Project ID**.
 - After successful registration, you can update the existing projectID with your own projectID. 
-- For messaging in combined application, You can update the projectID following these steps. ( JS-WEBAPP -> src -> app -> shared -> services -> pubsub.service.ts ).
-- For Many to Many call in combined application, you can update the ProjectID by following these steps. ( JS-WEBAPP -> src -> app -> shared -> services -> vdk.m2m-call.service.ts ).
-- For One to One call in combined application, you can update the ProjectID by following these steps. ( JS-WEBAPP -> src -> app -> shared -> services -> vdk.one2one-call.service.ts ).
+- For messaging in combined application, You can update the projectID following these steps. ( JS-COMBINED -> src -> app -> shared -> services -> pubsub.service.ts ).
+- For Many to Many call in combined application, you can update the ProjectID by following these steps. ( JS-COMBINED -> src -> app -> shared -> services -> vdk.m2m-call.service.ts ).
+- For One to One call in combined application, you can update the ProjectID by following these steps. ( JS-COMBINED -> src -> app -> shared -> services -> vdk.one2one-call.service.ts ).
 
 You have to Update Project_id at the Login and Signup request by following these steps.
-- At Login request. ( JS-WEBAPP -> src -> app -> components -> login -> login.component.ts )
-- At Signup request. ( JS-WEBAPP -> src -> app -> components -> sign-up -> sign-up.component.ts )
-
+- At Login request. ( JS-COMBINED -> src -> app -> components -> login -> login.component.ts )
+- At Signup request. ( JS-COMBINED -> src -> app -> components -> sign-up -> sign-up.component.ts )
 After replacing the projectID at all the above places, compile and run the project.
+
+### Base URL
+
+You have to update BaseUrl with projectID. You can update **apiBaseUrl** by following these steps.
+- In environment.prod.ts File, (JS-COMBINED -> src -> environments -> environment.prod.ts)
+- In environment.ts File, (JS-COMBINED -> src -> environments -> environment.ts)
+
   
 ## Setting up the Local Environment:
 
