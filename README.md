@@ -21,6 +21,10 @@ We recommend [nvm](https://github.com/creationix/nvm) for managing multiple vers
 
 
 Register at <a href="https://userpanel.vdotok.com/overview" target="_blank">VdoTok</a> to get **Authentication Token** and **Project ID**.
+- After successful registration, you can update the existing projectID with your own projectID, Which you will recieve in the response of register request. 
+- For messaging in combined application, You can update the projectID following these steps. ( JS-WEBAPP -> src -> app -> shared -> services -> pubsub.service.ts ).
+- For Many to Many call in combined application, you can update the ProjectID following these steps. ( JS-WEBAPP -> src -> app -> shared -> services -> vdk.m2m-call.service.ts ).
+- For One to One call in combined application, you can update the ProjectID following these steps. ( JS-WEBAPP -> src -> app -> shared -> services -> vdk.one2one-call.service.ts ).
   
 ## Setting up the Local Environment:
 
@@ -89,3 +93,10 @@ User provides config to initiate the SDK
       this.Client.Register(user.ref_id.toString(), user.authorization_token.toString());
     });
 ```
+After Successful configuation, you can run the projcet locally by using this command.
+
+```shell
+    npm start or
+    ng serve
+```
+Now open the browser and you can see the application at http://localhost:4200 
