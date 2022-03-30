@@ -64,7 +64,7 @@ Visit <a href="https://angular.io/guide/setup-local" target="_blank">Angular Set
 - Clone this **Repository URL** into new project folder (e.g., my-proj).
 
 ```shell
-    git clone https://github.com/vdotok/JS-chat.git 
+    git clone https://github.com/vdotok/JS-combined.git 
     cd my-proj
 ```
 
