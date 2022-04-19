@@ -4509,6 +4509,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
       }, {
         key: "setActiveChat",
         value: function setActiveChat(group) {
+          console.log("clicke");
           this.isActiveThread = group.id == this.activeChat.id;
           if (!this.isActiveThread) this.message = '';
           this.activeChat = group;
@@ -6361,7 +6362,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
           if (this.loginForm.invalid) return;
           var saveData = this.loginForm.value;
-          saveData.project_id = '18522FRZ';
+          saveData.project_id = '115G1WZI';
           this.loading = true;
           this.formError = null;
           this.auth.login(saveData).subscribe(function (v) {
@@ -6640,7 +6641,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
           if (this.loginForm.invalid) return;
           var saveData = this.loginForm.value;
-          saveData.project_id = '18522FRZ';
+          saveData.project_id = '115G1WZI';
           this.loading = true;
           this.formError = null;
           this.auth.signup(saveData).subscribe(function (v) {
@@ -8251,7 +8252,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
           var user = _storage_service__WEBPACK_IMPORTED_MODULE_1__["StorageService"].getUserData();
 
           this.Client = new MVDOTOK.Client({
-            projectID: "18522FRZ",
+            projectID: "115G1WZI",
             secret: "3d9686b635b15b5bc2d19800407609fa",
             host: "".concat(user.messaging_server_map.protocol, "://").concat(user.messaging_server_map.host, ":").concat(user.messaging_server_map.port)
           });
@@ -8460,7 +8461,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
           var _this29 = this;
 
           this.Client = new CVDOTOK.ManyToMany({
-            projectID: "18522FRZ",
+            projectID: "115G1WZI",
             secret: "3d9686b635b15b5bc2d19800407609fa"
           });
           this.Client.on("connected", function (res) {
@@ -8586,7 +8587,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
           var user = _storage_service__WEBPACK_IMPORTED_MODULE_1__["StorageService"].getUserData();
 
           this.Client = new CVDOTOK.Client({
-            projectID: "18522FRZ",
+            projectID: "115G1WZI",
             secret: "3d9686b635b15b5bc2d19800407609fa",
             host: "".concat(user.media_server_map.protocol, "://").concat(user.media_server_map.host, ":").concat(user.media_server_map.port, "/").concat(user.media_server_map.end_point)
           });
@@ -9315,7 +9316,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
     var environment = {
       production: false,
-      apiBaseUrl: 'https://tenant-api.vdotok.dev/API/v0/'
+      apiBaseUrl: 'https://q-tenant.vdotok.dev/API/v0/'
     };
     /*
      * For easier debugging in development mode, you can import the following file

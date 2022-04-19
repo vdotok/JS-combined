@@ -444,6 +444,7 @@ export class ChatComponent implements OnInit {
   }
 
   setActiveChat(group) {
+    console.log("clicke");
     this.isActiveThread = group.id == this.activeChat.id;
     if (!this.isActiveThread) this.message = '';
     this.activeChat = group;
