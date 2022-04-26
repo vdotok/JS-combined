@@ -8252,7 +8252,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
           var user = _storage_service__WEBPACK_IMPORTED_MODULE_1__["StorageService"].getUserData();
 
           this.Client = new MVDOTOK.Client({
-            projectID: "115G1WZI",
+            projectID: "143LV8M8",
             secret: "3d9686b635b15b5bc2d19800407609fa",
             host: "".concat(user.messaging_server_map.protocol, "://").concat(user.messaging_server_map.host, ":").concat(user.messaging_server_map.port)
           });
@@ -8461,7 +8461,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
           var _this29 = this;
 
           this.Client = new CVDOTOK.ManyToMany({
-            projectID: "115G1WZI",
+            projectID: "143LV8M8",
             secret: "3d9686b635b15b5bc2d19800407609fa"
           });
           this.Client.on("connected", function (res) {
@@ -8587,7 +8587,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
           var user = _storage_service__WEBPACK_IMPORTED_MODULE_1__["StorageService"].getUserData();
 
           this.Client = new CVDOTOK.Client({
-            projectID: "115G1WZI",
+            projectID: "143LV8M8",
             secret: "3d9686b635b15b5bc2d19800407609fa",
             host: "".concat(user.media_server_map.protocol, "://").concat(user.media_server_map.host, ":").concat(user.media_server_map.port, "/").concat(user.media_server_map.end_point)
           });

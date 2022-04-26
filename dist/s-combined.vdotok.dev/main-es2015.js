@@ -4415,7 +4415,7 @@ class PubsubService {
     initConfigure() {
         const user = _storage_service__WEBPACK_IMPORTED_MODULE_1__["StorageService"].getUserData();
         this.Client = new MVDOTOK.Client({
-            projectID: "115G1WZI",
+            projectID: "143LV8M8",
             secret: "3d9686b635b15b5bc2d19800407609fa",
             host: `${user.messaging_server_map.protocol}://${user.messaging_server_map.host}:${user.messaging_server_map.port}`
         });
@@ -4526,7 +4526,7 @@ class VdkM2MCallService {
     }
     initConfigure() {
         this.Client = new CVDOTOK.ManyToMany({
-            projectID: "115G1WZI",
+            projectID: "143LV8M8",
             secret: "3d9686b635b15b5bc2d19800407609fa",
         });
         this.Client.on("connected", (res) => {
@@ -4591,7 +4591,7 @@ class VdkOne2OneCallService {
     initConfigure() {
         const user = _storage_service__WEBPACK_IMPORTED_MODULE_1__["StorageService"].getUserData();
         this.Client = new CVDOTOK.Client({
-            projectID: "115G1WZI",
+            projectID: "143LV8M8",
             secret: "3d9686b635b15b5bc2d19800407609fa",
             host: `${user.media_server_map.protocol}://${user.media_server_map.host}:${user.media_server_map.port}/${user.media_server_map.end_point}`
         });
