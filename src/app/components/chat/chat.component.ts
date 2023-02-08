@@ -71,6 +71,7 @@ export class ChatComponent implements OnInit {
     callerName: '',
     from: "",
     session: "",
+    uuid:""
   }
 
   settings = {
@@ -158,6 +159,7 @@ export class ChatComponent implements OnInit {
           this.calling.callerName = full_name;
           this.calling.templateName = response.call_type == 'video' ? 'incommingVideoCall' : 'incommingAudioCall';
           this.calling.call_type = response.call_type;
+          this.calling.uuid = response.uuid;
           this.changeDetector.detectChanges();
           this.screen = 'MAIN';
           break;
@@ -799,6 +801,7 @@ export class ChatComponent implements OnInit {
       callerName: '',
       from: "",
       session: "",
+      uuid:""
     }
     this.callTime = 0;
     this.screen = 'LISTING';
@@ -851,6 +854,8 @@ export class ChatComponent implements OnInit {
       localVideo: document.getElementById("localVideo"),
       remoteVideo: document.getElementById("remoteVideo"),
       to: [...participantsList],
+      audio:1,
+      video:1
     }
     this.vdkOne2OneCallSVC.Call(params);
   }
@@ -888,7 +893,14 @@ export class ChatComponent implements OnInit {
   }
 
   acceptOne2oneCall() {
-    this.vdkOne2OneCallSVC.acceptCall(document.getElementById("localVideo"), document.getElementById("remoteVideo"));
+    this.vdkOne2OneCallSVC.acceptCall(
+      {
+        localVideo: document.getElementById("localVideo"),
+        remoteVideo: document.getElementById("remoteVideo"),
+        sessionUUID:this.calling.uuid,
+        audio:1,
+        video:this.calling.call_type == 'video'
+      });
     this.changeDetector.detectChanges();
     this.calling.templateName = this.calling.call_type == 'video' ? 'VideoCallInProgress' : 'AudioCallInProgress';
     this.startWatch();

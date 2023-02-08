@@ -9,7 +9,7 @@ export class VdkM2MCallService {
 
   public initConfigure(): void {
     this.Client = new CVDOTOK.ManyToMany({
-      projectID: "143LV8M8",
+      projectID: "115G1WZI",
       secret: "3d9686b635b15b5bc2d19800407609fa",
     });
     this.Client.on("connected", (res) => {

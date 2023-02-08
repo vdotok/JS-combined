@@ -10,9 +10,9 @@ export class VdkOne2OneCallService {
   public initConfigure(): void {
     const user = StorageService.getUserData();
     this.Client = new CVDOTOK.Client({
-      projectID: "143LV8M8",
-      secret: "3d9686b635b15b5bc2d19800407609fa",
-      host: `${user.media_server_map.protocol}://${user.media_server_map.host}:${user.media_server_map.port}/${user.media_server_map.end_point}`
+      projectID: "115G1WZI",
+      host: `${user.media_server_map.complete_address}`,
+      stunServer: `${user.stun_server_map.complete_address}`
     });
     this.Client.on("connected", (res) => {
       let user = StorageService.getUserData();
@@ -35,8 +35,8 @@ export class VdkOne2OneCallService {
     this.Client.AudioCall(params);
   }
 
-  acceptCall(local, remote): void {
-    this.Client.AcceptCall(local, remote);
+  acceptCall(params): void {
+    this.Client.AcceptCall(params);
   }
 
   rejectCall(from , val): void {
