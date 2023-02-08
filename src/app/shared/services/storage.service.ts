@@ -1,3 +1,5 @@
+import { Injectable } from "@angular/core";
+@Injectable()
 export class StorageService {
 
   static readonly STORAGE_KEY_AUTH_TOKEN = 'auth_token';
