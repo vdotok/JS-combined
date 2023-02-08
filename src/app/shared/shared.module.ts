@@ -9,7 +9,7 @@ import { HTTP_INTERCEPTORS } from '@angular/common/http';
 import { HttpService } from './services/http.service';
 import { PubsubService } from './services/pubsub.service';
 import { GetErrorsComponent } from './FormsHandler/get-errors.component';
-import { MAT_DIALOG_DEFAULT_OPTIONS } from '@angular/material/dialog';
+import { MAT_LEGACY_DIALOG_DEFAULT_OPTIONS as MAT_DIALOG_DEFAULT_OPTIONS } from '@angular/material/legacy-dialog';
 import { filterPipe } from './pipe/filter';
 import { SafeUrlPipe } from './pipe/safeurl';
 import { FormatTimePipe } from './pipe/formatTime';
