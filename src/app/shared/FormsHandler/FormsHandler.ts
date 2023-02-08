@@ -1,4 +1,4 @@
-import { FormGroup } from "@angular/forms";
+import { UntypedFormGroup } from "@angular/forms";
 
 export default class FormsHandler {
 
@@ -38,7 +38,7 @@ export default class FormsHandler {
         } else {
             if (form.controls) {
                 for (const group in form.controls) {
-                    const groupFiled = form.get(group) as FormGroup;
+                    const groupFiled = form.get(group) as UntypedFormGroup;
                     for (const field in groupFiled.controls) {
                         const control = groupFiled.get(field);
                         if (control.invalid) {

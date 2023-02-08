@@ -10,7 +10,7 @@ import { FindArrayObject } from 'src/app/shared/helpers/helpersFunctions';
 import { BaseService } from 'src/app/shared/services/base.service';
 import { PubsubService } from 'src/app/shared/services/pubsub.service';
 import { StorageService } from 'src/app/shared/services/storage.service';
-import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import FormsHandler from 'src/app/shared/FormsHandler/FormsHandler';
 import { MessageModel, onlineOfflineModel, receiptModel, typingModel } from 'src/app/shared/models/chat';
 import { Subscription, timer } from 'rxjs';
@@ -41,7 +41,7 @@ export class ChatComponent implements OnInit {
 
   ongoingCall = false;
   editGroupModel = false;
-  groupForm: FormGroup;
+  groupForm: UntypedFormGroup;
   loading = true;
   AllGroups = [];
   AllUsers = [];
@@ -106,11 +106,11 @@ export class ChatComponent implements OnInit {
     public dialog: MatDialog,
     private toastr: ToastrService,
     private changeDetector: ChangeDetectorRef,
-    private _fb: FormBuilder
+    private _fb: UntypedFormBuilder
   ) {
     this.groupForm = this._fb.group({
-      'group_id': new FormControl('', [Validators.required]),
-      'group_title': new FormControl('', [Validators.required, Validators.maxLength(100)]),
+      'group_id': new UntypedFormControl('', [Validators.required]),
+      'group_title': new UntypedFormControl('', [Validators.required, Validators.maxLength(100)]),
     }, { updateOn: 'change' });
     this.pubsubService.initConfigure();
     this.vdkOne2OneCallSVC.initConfigure();

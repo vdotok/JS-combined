@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
-import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import FormsHandler from 'src/app/shared/FormsHandler/FormsHandler';
 import { BaseService } from 'src/app/shared/services/base.service';
 import { PubsubService } from 'src/app/shared/services/pubsub.service';
@@ -22,7 +22,7 @@ export class AddGroupComponent implements OnInit {
   currentUserName = StorageService.getAuthUsername();
   currentUserData = StorageService.getUserData();
   @Output() changeEvent = new EventEmitter<string>();
-  form: FormGroup;
+  form: UntypedFormGroup;
   loading = true;
   addGroupModel = false;
   AllUsers = [];
@@ -42,14 +42,14 @@ export class AddGroupComponent implements OnInit {
     public pubsubService: PubsubService,
     private svc: BaseService,
     private toastr: ToastrService,
-    private _fb: FormBuilder,
+    private _fb: UntypedFormBuilder,
     private changeDetector: ChangeDetectorRef,
   ) {
   }
 
   ngOnInit() {
     this.form = this._fb.group({
-      'group_title': new FormControl('', [Validators.required, Validators.maxLength(100)]),
+      'group_title': new UntypedFormControl('', [Validators.required, Validators.maxLength(100)]),
     }, { updateOn: 'change' });
 
     document.addEventListener("keyup", event => {
