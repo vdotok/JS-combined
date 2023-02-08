@@ -120,7 +120,7 @@ export class ChatComponent implements OnInit {
 
   ngOnInit() {
     this.pubsubService.Client.on("connect", response => {
-      console.error("connect", response);
+      console.log("connect", response);
       this.sdkconnected = true;
       if (!this.AllGroups.length) {
         this.getAllGroups();
@@ -133,17 +133,17 @@ export class ChatComponent implements OnInit {
     });
 
     this.vdkOne2OneCallSVC.Client.on("register", response => {
-      console.error("register response", response);
+      console.log("register response", response);
     });
 
     this.vdkOne2OneCallSVC.Client.on("connected", response => {
       this.sdkconnected = true;
-      console.error("connected response", response);
+      console.log("connected response", response);
     });
 
     this.vdkOne2OneCallSVC.Client.on("call", response => {
 
-      console.error("call response", response) ;
+      console.log("call response", response) ;
       console.log("ongoing call" , this.ongoingCall);
 
       switch (response.type) {
@@ -199,7 +199,7 @@ export class ChatComponent implements OnInit {
     // });
 
     this.vdkOne2OneCallSVC.Client.on("groupCall", response => {
-      console.error("groupCall response", response);
+      console.log("groupCall response", response);
       switch (response.type) {
 
         case "CALL_RECEIVED":
@@ -260,7 +260,7 @@ export class ChatComponent implements OnInit {
 
     this.pubsubService.Client.on("message", response => {
       response = JSON.parse(JSON.stringify(response));
-      console.trace("new message", response);
+      //console.trace("new message", response);
       if (response.type == 'text' || response.type == 'file' || response.type == 'image' || response.type == 'audio' || response.type == 'video') {
         this.scroll();
         const chatthread = this.findChatThread(response.to);
@@ -372,7 +372,7 @@ export class ChatComponent implements OnInit {
 
   editGroup() {
     FormsHandler.validateForm(this.groupForm);
-    console.error("this.groupForm.", this.groupForm.invalid);
+    console.log("this.groupForm.", this.groupForm.invalid);
     if (this.groupForm.invalid || this.loading) return;
     const playload = this.groupForm.value;
     this.loading = true;
@@ -408,7 +408,7 @@ export class ChatComponent implements OnInit {
           chat['isSeen'] = true;
           return chat;
         });
-        console.error("this.activeChat.chatTitle", this.activeChat);
+        console.log("this.activeChat.chatTitle", this.activeChat);
         if (!this.activeChat.chatTitle) {
           this.activeChat = this.AllGroups.length ? this.AllGroups['0'] : {};
         }
@@ -418,7 +418,7 @@ export class ChatComponent implements OnInit {
           this.setToActive = null;
         }
         this.isActiveThread = true;
-        console.error("this.activeChat.chatTitle", this.activeChat);
+        console.log("this.activeChat.chatTitle", this.activeChat);
         this.pubsubService.subscribeToChat(this.AllGroups);
       }
       setTimeout(() => {
@@ -823,7 +823,7 @@ export class ChatComponent implements OnInit {
     this.vdkOne2OneCallSVC.leaveGroupCall();
     this.resetCall();
     this.changeDetector.detectChanges();
-    console.error("stopCall");
+    console.log("stopCall");
   }
 
   inCall(): boolean {
@@ -882,12 +882,12 @@ export class ChatComponent implements OnInit {
   }
 
   acceptcall() {
-    console.error("acceptcall");
+    console.log("acceptcall");
     if (this.calling.session == 'one_to_one') {
-      console.error("acceptcall one_to_one");
+      console.log("acceptcall one_to_one");
       this.acceptOne2oneCall();
     } else {
-      console.error("acceptcall acceptM2MCall");
+      console.log("acceptcall acceptM2MCall");
       this.acceptM2MCall();
     }
   }
@@ -925,7 +925,7 @@ export class ChatComponent implements OnInit {
   }
 
   startWatch() {
-    console.trace()
+    //console.trace()
     if (!this.callTime) {
       this.countDownTime = timer(0, 1000).subscribe(() => ++this.callTime);
     }
