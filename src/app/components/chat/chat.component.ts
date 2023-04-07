@@ -66,7 +66,7 @@ export class ChatComponent implements OnInit {
   groupOutgoingVideoCall = false;
   calling = {
     participant: [],
-    call_type: 'video',
+    callType: 'video',
     templateName: 'noCall',
     callerName: '',
     from: "",
@@ -157,8 +157,8 @@ export class ChatComponent implements OnInit {
           this.changeDetector.detectChanges();
           const full_name = this.findUserName(response.from);
           this.calling.callerName = full_name;
-          this.calling.templateName = response.call_type == 'video' ? 'incommingVideoCall' : 'incommingAudioCall';
-          this.calling.call_type = response.call_type;
+          this.calling.templateName = response.callType == 'video' ? 'incommingVideoCall' : 'incommingAudioCall';
+          this.calling.callType = response.callType;
           this.calling.uuid = response.uuid;
           this.changeDetector.detectChanges();
           this.screen = 'MAIN';
@@ -179,7 +179,7 @@ export class ChatComponent implements OnInit {
         case "CALL_ACCEPTED":
           if (response.to) {
             this.changeDetector.detectChanges();
-            this.calling.templateName = this.calling.call_type == 'video' ? 'VideoCallInProgress' : 'AudioCallInProgress';
+            this.calling.templateName = this.calling.callType == 'video' ? 'VideoCallInProgress' : 'AudioCallInProgress';
             this.startWatch();
             this.changeDetector.detectChanges();
           }
@@ -205,12 +205,12 @@ export class ChatComponent implements OnInit {
         case "CALL_RECEIVED":
           this.screen = 'MAIN'
           this.calling.callerName = this.findUserName(response.from);
-          this.calling.templateName = response.call_type == 'video' ? 'groupIncommingVideoCall' : 'groupIncommingAudioCall';
-          this.calling.call_type = response.call_type;
+          this.calling.templateName = response.callType == 'video' ? 'groupIncommingVideoCall' : 'groupIncommingAudioCall';
+          this.calling.callType = response.callType;
           this.changeDetector.detectChanges();
           break;
         case "NEW_PARTICIPANT":
-          this.calling.templateName = this.calling.call_type == 'video' ? 'groupVideoCall' : 'groupOngoingAudioCall';
+          this.calling.templateName = this.calling.callType == 'video' ? 'groupVideoCall' : 'groupOngoingAudioCall';
           this.groupOutgoingVideoCall = false;
           this.addParticipant(response);
           break;
@@ -796,7 +796,7 @@ export class ChatComponent implements OnInit {
     }
     this.calling = {
       participant: [],
-      call_type: 'video',
+      callType: 'video',
       templateName: 'noCall',
       callerName: '',
       from: "",
@@ -874,9 +874,13 @@ export class ChatComponent implements OnInit {
     this.calling['callerName'] = this.activeChat.chatTitle;
     this.changeDetector.detectChanges();
     const params = {
-      call_type: "video",
+      callType: "video",
       localVideo: document.getElementById("localVideo"),
       to: [...p],
+      video:1,
+      audio:1,
+      timeout: 40,
+      isPeer: 0
     }
     this.vdkOne2OneCallSVC.groupCall(params);
   }
@@ -899,10 +903,10 @@ export class ChatComponent implements OnInit {
         remoteVideo: document.getElementById("remoteVideo"),
         sessionUUID:this.calling.uuid,
         audio:1,
-        video:this.calling.call_type == 'video'
+        video:this.calling.callType == 'video'
       });
     this.changeDetector.detectChanges();
-    this.calling.templateName = this.calling.call_type == 'video' ? 'VideoCallInProgress' : 'AudioCallInProgress';
+    this.calling.templateName = this.calling.callType == 'video' ? 'VideoCallInProgress' : 'AudioCallInProgress';
     this.startWatch();
     this.ongoingCall = true;
     this.changeDetector.detectChanges();
@@ -911,11 +915,11 @@ export class ChatComponent implements OnInit {
   acceptM2MCall() {
     if (this.isM2MProgressCall()) return;
     this.ongoingCall = true;
-    this.calling.templateName = this.calling.call_type == 'video' ? 'groupVideoCall' : 'groupOngoingAudioCall';
+    this.calling.templateName = this.calling.callType == 'video' ? 'groupVideoCall' : 'groupOngoingAudioCall';
     this.changeDetector.detectChanges();
     const params = {
       localVideo: document.getElementById("localVideo"),
-      call_type: this.calling.call_type
+      callType: this.calling.callType
     }
     this.startWatch();
     this.changeDetector.detectChanges();
@@ -947,7 +951,7 @@ export class ChatComponent implements OnInit {
       return;
     }
     this.calling.session = 'one_to_one';
-    this.calling.call_type = 'audio';
+    this.calling.callType = 'audio';
     this.ongoingCall = true;
     this.screen = 'MAIN';
     this.calling.templateName = 'outgoingAudioCall';
@@ -969,16 +973,20 @@ export class ChatComponent implements OnInit {
       this.toastr.error('Please select someone to call!', 'Opps!')
       return;
     }
-    this.calling.call_type = 'audio';
+    this.calling.callType = 'audio';
     this.ongoingCall = true;
     this.screen = 'MAIN';
     this.calling.templateName = 'groupOutgoingAudioCall';
     this.calling['callerName'] = this.activeChat.chatTitle;
 
     const params = {
-      call_type: "audio",
+      callType: "audio",
       localVideo: document.getElementById("localAudio"),
       to: [...participants],
+      video:0,
+      audio:1,
+      timeout: 40,
+      isPeer: 0
     }
     this.vdkOne2OneCallSVC.groupCall(params);
   }
@@ -1032,7 +1040,7 @@ export class ChatComponent implements OnInit {
   }
 
   isShowRemoteVideo(): boolean {
-    return this.calling.templateName != 'VideoCallInProgress' && this.calling.call_type != 'video';
+    return this.calling.templateName != 'VideoCallInProgress' && this.calling.callType != 'video';
   }
 
   isHideLocalVideo(): boolean {
