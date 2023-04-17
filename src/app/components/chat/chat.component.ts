@@ -13,7 +13,7 @@ import { StorageService } from 'src/app/shared/services/storage.service';
 import { UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import FormsHandler from 'src/app/shared/FormsHandler/FormsHandler';
 import { MessageModel, onlineOfflineModel, receiptModel, typingModel } from 'src/app/shared/models/chat';
-import { Subscription, timer } from 'rxjs';
+import {from, Subscription, timer} from 'rxjs';
 import { VdkM2MCallService } from 'src/app/shared/services/vdk-m2m-call.service';
 import { VdkOne2OneCallService } from 'src/app/shared/services/vdk-one2one-call.service';
 
@@ -191,6 +191,9 @@ export class ChatComponent implements OnInit {
           if (document.getElementById('remoteVideo')) document.getElementById('remoteVideo').style.display = displaystyle;
           if (document.getElementById('callerHolder')) document.getElementById('callerHolder').style.display = callerHolderstyle;
           break;
+        case "REMOTE_STREAM":
+          this.addParticipant(response, 1);
+          break;
       }
     });
 
@@ -210,8 +213,6 @@ export class ChatComponent implements OnInit {
           this.changeDetector.detectChanges();
           break;
         case "NEW_PARTICIPANT":
-          this.calling.templateName = this.calling.callType == 'video' ? 'groupVideoCall' : 'groupOngoingAudioCall';
-          this.groupOutgoingVideoCall = false;
           this.addParticipant(response);
           break;
         case "PARTICIPANT_LEFT":
@@ -879,7 +880,7 @@ export class ChatComponent implements OnInit {
       to: [...p],
       video:1,
       audio:1,
-      timeout: 40,
+      //timeout: 40,
       isPeer: 0
     }
     this.vdkOne2OneCallSVC.groupCall(params);
@@ -1064,16 +1065,37 @@ export class ChatComponent implements OnInit {
     return this.calling.templateName == 'groupVideoCall' || this.calling.templateName == 'groupOngoingAudioCall';
   }
 
-  addParticipant(response) {
+  addParticipant(response, fromRemoteStream = 0) {
+    this.calling.templateName = this.calling.callType == 'video' ? 'groupVideoCall' : 'groupOngoingAudioCall';
+    this.groupOutgoingVideoCall = false;
     const user = this.AllUsers.find(user => user.ref_id == response.participant);
-    this.calling.participant.push(user);
+    if(!this.calling.participant.includes(user))
+    {
+      this.calling.participant.push(user);
+    }
     this.changeDetector.detectChanges();
     setTimeout(() => {
       this.changeDetector.detectChanges();
-      this.vdkOne2OneCallSVC.setParticipantVideo(response.participant, document.getElementById(response.participant));
       const user = this.findUserName(response.participant);
       const textmsg = user + ' ' + 'has joined';
       this.toastr.success(textmsg);
+      if(fromRemoteStream)
+      {//Peer to Peer Call
+        let video:any = document.getElementById(response.participant);
+        if(video)
+        {
+          video.srcObject = response.stream[response.participant].stream[0];
+        }
+        else
+        {
+          console.error("Video Element not found to set remote stream for", response.participant)
+        }
+      }
+       else
+      {
+        //Media server call
+        this.vdkOne2OneCallSVC.setParticipantVideo(response.participant, document.getElementById(response.participant));
+      }
     });
     this.changeDetector.detectChanges();
   }
