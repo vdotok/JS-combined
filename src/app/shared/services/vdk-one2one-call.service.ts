@@ -10,8 +10,8 @@ export class VdkOne2OneCallService {
   public initConfigure(): void {
     const user = StorageService.getUserData();
     this.Client = new CVDOTOK.Client({
-      projectId: "115G1WZI",
-      host: `wss://r-stun2.vdotok.dev:8443/call`,
+      projectId: "1RN1RP",
+      host: `${user.media_server_map.complete_address}`,
       stunServer: `${user.stun_server_map.complete_address}`
     });
     this.Client.on("connected", (res) => {

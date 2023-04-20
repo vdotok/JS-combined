@@ -205,13 +205,6 @@ class Client extends events_1.EventEmitter {
         this.Authentication(_Credentials);
         window.addEventListener('online', this.onOnline.bind(this));
         window.addEventListener('offline', this.onOffline.bind(this));
-        setInterval(() => {
-            for (var uUID in this.webRtcPeers) {
-                if (this.webRtcPeers.hasOwnProperty(uUID)) {
-                    console.log(this.webRtcPeers[uUID].peerConnection.connectionState);
-                }
-            }
-        }, 3000);
     }
     set McToken(token) {
         this.mcToken = token;
@@ -254,10 +247,12 @@ class Client extends events_1.EventEmitter {
                 clearInterval(socketCheckInterval);
                 console.log("Current call session count", this.sessionInfo.length);
                 if (this.sessionInfo && Object.keys(this.sessionInfo).length >= 1) {
-                    for (let UUID in this.sessionInfo) {
-                        console.log("Currently trying auto reconnect for  call session", UUID);
-                        let result = await this.autoReconnectCall(UUID);
-                        console.log("Reconnect result -> ", result);
+                    for (let uUID in this.sessionInfo) {
+                        for (let refId in this.sessionInfo[uUID]["participants"]) {
+                            console.log("Currently trying auto reconnect for  call session", uUID, refId);
+                            let result = await this.autoReconnectCall(uUID, null, refId);
+                            console.log("Reconnect result -> ", result);
+                        }
                     }
                 }
             }
@@ -283,6 +278,7 @@ class Client extends events_1.EventEmitter {
         this.mediaServer = mediaServer;
         this.cleanIntervals();
         this.ws.onmessage = (message) => {
+            var _a;
             var messageData = JSON.parse(message.data);
             console.log('Received message: ', messageData);
             switch (messageData.requestType) {
@@ -312,8 +308,9 @@ class Client extends events_1.EventEmitter {
                     this.CallResponse(messageData);
                     console.log("Wait for Ice received and try to reconnect!");
                     this.reconnectCheckInterval[messageData.sessionUuid] = setTimeout(() => {
+                        var _a;
                         console.log("Ice not received, reconnecting...!");
-                        let result = this.autoReconnectCall(messageData.sessionUuid);
+                        let result = this.autoReconnectCall(messageData.sessionUuid, null, (_a = messageData.from) !== null && _a !== void 0 ? _a : messageData.referenceId);
                         console.log(result);
                     }, 1600);
                     break;
@@ -382,7 +379,7 @@ class Client extends events_1.EventEmitter {
                         this.AddCandidate(messageData);
                     }
                     else {
-                        if (participant && participant.peerConnection && participant.peerConnection.peerConnection.currentRemoteDescription) {
+                        if ((_a = participant === null || participant === void 0 ? void 0 : participant.peerConnection) === null || _a === void 0 ? void 0 : _a.peerConnection.currentRemoteDescription) {
                             this.AddCandidate(messageData);
                         }
                         else {
@@ -392,7 +389,8 @@ class Client extends events_1.EventEmitter {
                             participant.receivedRemoteCandidates.push(messageData);
                             if (!participant.isRemoteSDPAvailable) {
                                 participant.isRemoteSDPAvailable = setInterval(() => {
-                                    if (participant && participant.peerConnection.peerConnection.currentRemoteDescription) {
+                                    var _a, _b;
+                                    if ((_b = (_a = participant === null || participant === void 0 ? void 0 : participant.peerConnection) === null || _a === void 0 ? void 0 : _a.peerConnection) === null || _b === void 0 ? void 0 : _b.currentRemoteDescription) {
                                         clearInterval(participant.isRemoteSDPAvailable);
                                         participant.isRemoteSDPAvailable = null;
                                         console.log("Processing stored ice candidates!");
@@ -600,9 +598,10 @@ class Client extends events_1.EventEmitter {
         let socket = this.ws;
         return socket.readyState !== WebSocket.CLOSED && socket.readyState !== WebSocket.CLOSING;
     }
-    autoReconnectCall(uUID, params = null) {
+    autoReconnectCall(uUID, params = null, refId = null) {
         var _a, _b;
-        if (this.webRtcPeers[uUID] && this.webRtcPeers[uUID].peerConnection && this.webRtcPeers[uUID].peerConnection.connectionState === "connected") {
+        let webRTCPeer = this.getPeerById(uUID, refId);
+        if ((webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection) && webRTCPeer.peerConnection.connectionState === "connected") {
             return { message: "RTC Peer got auto connected no need for manual reconnect!", status: true };
         }
         params = params || (this.sessionInfo[uUID] && this.sessionInfo[uUID].currentCallParams ? this.sessionInfo[uUID].currentCallParams : null);
@@ -624,8 +623,8 @@ class Client extends events_1.EventEmitter {
             else if (["audio", "video", "one_to_one"].includes(params.callType)) {
                 if (params.isPeer) {
                     console.log("Peer to Peer call");
-                    if (this.webRtcPeers[uUID]) {
-                        this.webRtcPeers[uUID].generateOffer((error, offerSdp) => {
+                    if (webRTCPeer) {
+                        webRTCPeer.generateOffer((error, offerSdp) => {
                             this.onOfferCall(error, offerSdp, this.mediaType, uUID, params);
                             console.log("Call autoConnected successfully", uUID);
                         }, { iceRestart: true });
@@ -653,11 +652,13 @@ class Client extends events_1.EventEmitter {
         }
     }
     PeerToPeerReInvite(messageData) {
+        var _a, _b;
+        let webRTCPeer = this.getPeerById(messageData.sessionUuid, (_a = messageData.from) !== null && _a !== void 0 ? _a : messageData.referenceId);
         if (messageData.sdpType === "sdp_anwser") {
             try {
-                if (this.webRtcPeers[messageData.sessionUuid]) {
+                if (webRTCPeer) {
                     if (messageData.sdp) {
-                        this.webRtcPeers[messageData.sessionUuid].processAnswer(messageData.sdp, (error) => {
+                        webRTCPeer.processAnswer(messageData.sdp, (error) => {
                             if (error) {
                                 EventHandler_1.default.SessionSDP(error, this);
                                 return console.error(error);
@@ -673,14 +674,14 @@ class Client extends events_1.EventEmitter {
             return;
         }
         let uUID = messageData.sessionUuid;
-        let sdp = messageData.sdp ? messageData.sdp : messageData.sdpOffer;
+        let sdp = (_b = messageData.sdp) !== null && _b !== void 0 ? _b : messageData.sdpOffer;
         if (this.sessionInfo && this.sessionInfo[uUID] && this.sessionInfo[uUID].lastReinviteTime && messageData.timestamp < this.sessionInfo[uUID].lastReinviteTime) {
             console.log("Conflict! No need to process Answer, As this peer just send a latest reInvite and answer will be processed on other peer side");
             return;
         }
         if (messageData.callType === "one_to_one") {
-            if (this.webRtcPeers[uUID] && this.sessionInfo[uUID] && !this.sessionInfo[uUID].isInitiator) {
-                this.webRtcPeers[uUID].processOffer(sdp, (error, answerSdp) => {
+            if (webRTCPeer && this.sessionInfo[uUID] && !this.sessionInfo[uUID].isInitiator) {
+                webRTCPeer.processOffer(sdp, (error, answerSdp) => {
                     if (error) {
                         EventHandler_1.default.SessionSDP(error, this);
                         return console.error(error);
@@ -733,19 +734,20 @@ class Client extends events_1.EventEmitter {
                 this.localVideos[params.uUID] = options.localVideo;
             }
             let WebRTCPeer = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerSendrecv(options, (error) => {
+                var _a;
                 if (error) {
                     rejects(error);
                     this.onErrorHandler();
                     return console.error(error);
                 }
+                if (!((_a = this.sessionInfo[params.uUID]) === null || _a === void 0 ? void 0 : _a.participants)) {
+                    this.sessionInfo[params.uUID]["participants"] = {};
+                }
                 if (params.callType === "many_to_many" && params.isPeer) {
-                    if (!Object.keys(this.sessionInfo[params.uUID]["participants"]).length) {
-                        this.sessionInfo[params.uUID]["participants"] = {};
-                    }
                     this.sessionInfo[params.uUID]["participants"][this.getFirstValue(params.to)] = { peerConnection: WebRTCPeer };
                 }
-                else {
-                    this.webRtcPeers[params.uUID] = WebRTCPeer;
+                else { //O2O,O2M
+                    this.sessionInfo[params.uUID]["participants"][this.currentUser] = { peerConnection: WebRTCPeer };
                 }
                 WebRTCPeer.generateOffer((error, offerSdp) => {
                     if (params.callType == "one_to_many") {
@@ -900,8 +902,9 @@ class Client extends events_1.EventEmitter {
             this.manyToMany.AddCandidate(message);
             return;
         }
-        if (this.webRtcPeers[message.sessionUuid]) {
-            this.webRtcPeers[message.sessionUuid].addIceCandidate(message.candidate, (error) => {
+        let webRTCPeer = this.getPeerById(message.sessionUuid);
+        if (webRTCPeer) {
+            webRTCPeer.addIceCandidate(message.candidate, (error) => {
                 if (error) {
                     EventHandler_1.default.OnAddCandidate(error, this);
                     return console.error('Error adding candidate: ' + error);
@@ -922,6 +925,7 @@ class Client extends events_1.EventEmitter {
         }
     }
     CallResponse(response) {
+        var _a, _b;
         if (this.rtcPears) {
             let answer = new RTCSessionDescription({
                 type: 'answer',
@@ -935,9 +939,10 @@ class Client extends events_1.EventEmitter {
             return;
         }
         EventHandler_1.default.OnCallResponse(response, this);
-        console.info('CallResponse', this.webRtcPeers[response.sessionUuid], response);
+        let webRTCPeer = this.getPeerById(response.sessionUuid, (_a = response.from) !== null && _a !== void 0 ? _a : response.referenceId);
+        console.info('CallResponse', webRTCPeer, response);
         if (response.response == 'accepted') {
-            this.webRtcPeers[response.sessionUuid].processAnswer(response.sdpAnswer, (error) => {
+            webRTCPeer.processAnswer((_b = response.sdpAnswer) !== null && _b !== void 0 ? _b : response.sdp, (error) => {
                 if (error) {
                     EventHandler_1.default.SessionSDP(error, this);
                     return console.error(error);
@@ -946,6 +951,7 @@ class Client extends events_1.EventEmitter {
         }
     }
     SessionStart(message) {
+        var _a;
         if (this.rtcPears) {
             let answer = new RTCSessionDescription({
                 type: 'answer',
@@ -954,14 +960,15 @@ class Client extends events_1.EventEmitter {
             this.rtcPears.setRemoteDescription(answer);
             return;
         }
-        if (this.isManyToMany && Object.keys(this.manyToMany).length) {
+        if (this.isManyToMany && Object.keys(this.manyToMany).length && !this.manyToMany.isPeerCall) {
             this.manyToMany.SessionStart(message);
             return;
         }
         EventHandler_1.default.SessionStart(message, this);
-        if (this.webRtcPeers[message.sessionUuid]) {
-            if (message.sdpAnswer) {
-                this.webRtcPeers[message.sessionUuid].processAnswer(message.sdpAnswer, (error) => {
+        let webRTCPeer = this.getPeerById(message.sessionUuid);
+        if (webRTCPeer) {
+            if (message.sdpAnswer || message.sdp) {
+                webRTCPeer.processAnswer((_a = message.sdpAnswer) !== null && _a !== void 0 ? _a : message.sdp, (error) => {
                     if (error) {
                         EventHandler_1.default.SessionSDP(error, this);
                         return console.error(error);
@@ -1014,18 +1021,21 @@ class Client extends events_1.EventEmitter {
             }
             if (uUID) {
                 let WebRTCPeer = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerSendrecv(options, (error) => {
+                    var _a;
                     if (error) {
                         this.onErrorHandler();
                         rejects(error);
                     }
                     let isPeer = params.isPeer || (this.sessionInfo[uUID] && this.sessionInfo[uUID].incomingCallData ? this.sessionInfo[uUID].incomingCallData.isPeer : 0);
                     let sdp = params.sdp || (this.sessionInfo[uUID] && this.sessionInfo[uUID].incomingCallData ? this.sessionInfo[uUID].incomingCallData.callerSdp : "");
-                    if (params.callType === "many_to_many" && params.isPeer) {
+                    if (!((_a = this.sessionInfo[uUID]) === null || _a === void 0 ? void 0 : _a.participants)) {
                         this.sessionInfo[uUID]["participants"] = {};
+                    }
+                    if (params.callType === "many_to_many" && params.isPeer) {
                         this.sessionInfo[uUID]["participants"][from] = { peerConnection: WebRTCPeer };
                     }
-                    else {
-                        this.webRtcPeers[uUID] = WebRTCPeer;
+                    else { //O2O
+                        this.sessionInfo[uUID]["participants"][this.currentUser] = { peerConnection: WebRTCPeer };
                     }
                     if (isPeer) {
                         //This is peer to peer call
@@ -1519,26 +1529,28 @@ class Client extends events_1.EventEmitter {
         ///////////////////////////////////////////
         ///////////////////////////////////////////
         callRequest.SendCallRequest(this.ws);
-        if (this.webRtcPeers && this.webRtcPeers[uUID] && this.webRtcPeers[uUID].peerConnection) {
+        let webRTCPeer = this.getPeerById(uUID);
+        if (webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection) {
             //@ts-ignore
-            this.webRtcPeers[uUID].peerConnection.addEventListener("iceconnectionstatechange", this.onIceError.bind(this, uUID), false);
+            webRTCPeer.peerConnection.addEventListener("iceconnectionstatechange", this.onIceError.bind(this, uUID, this.currentUser), false);
         }
         this.sendStateInformation(this.videoStatus[uUID], this.audioStatus[uUID], uUID, {
             fromVideo: true,
             reInvite: params.re_invite
         });
     }
-    onIceError(uUID, ev) {
+    onIceError(uUID, ev, refID) {
+        let webRTCPeer = this.getPeerById(uUID, refID);
         let states = ['closed', 'failed', 'disconnected'];
-        if (this.webRtcPeers && this.webRtcPeers[uUID] && this.webRtcPeers[uUID].peerConnection && this.webRtcPeers[uUID].peerConnection.iceConnectionState && states.includes(this.webRtcPeers[uUID].peerConnection.iceConnectionState)) { //it will come for all ice
+        if ((webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection) && webRTCPeer.peerConnection.iceConnectionState && states.includes(webRTCPeer.peerConnection.iceConnectionState)) { //it will come for all ice
             if (this.reInviteTimeout[uUID]) {
                 clearTimeout(this.reInviteTimeout[uUID]);
             }
             console.log("SDK iceconnectionstatechange", ev);
             this.reInviteTimeout[uUID] = setTimeout(() => {
-                console.log("Re_inviting because ice state = ", this.webRtcPeers[uUID].peerConnection.iceConnectionState);
+                console.log("Re_inviting because ice state = ", webRTCPeer.peerConnection.iceConnectionState);
                 try {
-                    let result = this.autoReconnectCall(uUID);
+                    let result = this.autoReconnectCall(uUID, null, refID);
                     console.log(result);
                 }
                 catch (e) {
@@ -1640,22 +1652,22 @@ class Client extends events_1.EventEmitter {
         if (!from) {
             from = this.currentFromUser;
         }
-        if (this.webRtcPeers) {
-            for (var uUID in this.webRtcPeers) {
+        if (this.sessionInfo) {
+            for (var uUID in this.sessionInfo) {
                 if (!onlyUUID || (onlyUUID && onlyUUID == uUID)) //only a single session get deleted or all sessions
                  {
-                    if (this.webRtcPeers.hasOwnProperty(uUID)) {
-                        this.webRtcPeers[uUID].dispose();
+                    let webRTCPeer = this.getPeerById(uUID);
+                    if (webRTCPeer) {
+                        webRTCPeer.dispose();
                         if (status) {
                             this.sendDisposePacket(uUID);
                         }
-                        if (this.webRtcPeers[uUID] && this.webRtcPeers[uUID].peerConnection) {
-                            this.webRtcPeers[uUID].peerConnection.removeEventListener("iceconnectionstatechange", this.onIceError, false);
+                        if (webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection) {
+                            webRTCPeer.peerConnection.removeEventListener("iceconnectionstatechange", this.onIceError, false);
                         }
                         if (this.sessionInfo[uUID].callTimeoutInterval) {
                             clearTimeout(this.sessionInfo[uUID].callTimeoutInterval);
                         }
-                        delete this.webRtcPeers[uUID];
                         delete this.sessionInfo[uUID];
                     }
                 }
@@ -1797,8 +1809,25 @@ class Client extends events_1.EventEmitter {
         }
     }
     async replaceStreamTracks(stream, uuid, type = 'video') {
+        var _a;
+        if (this.isManyToMany) {
+            let replaced = false;
+            for (let refId in (_a = this.sessionInfo[uuid]) === null || _a === void 0 ? void 0 : _a.participants) {
+                replaced = await this.replaceTracksInternal(uuid, stream, type, refId);
+                if (!replaced) {
+                    console.error("Stream tracks not replaced for", uuid, stream, type, refId);
+                }
+            }
+            return replaced;
+        }
+        else {
+            return this.replaceTracksInternal(uuid, stream, type);
+        }
+    }
+    async replaceTracksInternal(uuid, stream, type, refId = null) {
         let replaced = false;
-        let senders = this.webRtcPeers[uuid].peerConnection.getSenders();
+        let webRTCPeer = this.getPeerById(uuid, refId);
+        let senders = webRTCPeer.peerConnection.getSenders();
         for (const sender of senders) {
             if (sender && sender.track && sender.track.kind === type) {
                 let t = (stream.getTracks().filter((track) => track.kind === type))[0];
@@ -1871,7 +1900,8 @@ class Client extends events_1.EventEmitter {
      * SetCameraOn
      */
     async SetCameraOn(uUID, facingMode = 'user', extraData = null) {
-        if (!(this.webRtcPeers[uUID] && this.webRtcPeers[uUID].peerConnection)) {
+        let webRTCPeer = this.getPeerById(uUID);
+        if (!(webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection)) {
             return { status: false, message: "Peer Connection not found!", tryNewCall: true };
         }
         let session = (this.isManyToMany) ? this.callSession : this.UUIDSessions[this.currentFromUser];
@@ -2061,18 +2091,6 @@ class Client extends events_1.EventEmitter {
     sendPing() {
         try {
             let pingCount = 0;
-            /*for (var uUID in this.webRtcPeers) {
-              if(this.pingSessionStopped[uUID])
-              {
-                console.log("SDK not sending Ping session already stopped from server with 400 pong for: ", uUID);
-              }
-              else
-              {
-                pingCount++;
-                this.sendStateRPC({}, uUID, 0, 'session_ping')
-                console.log("SDK Ping sent for: ", uUID);
-              }
-            }*/
             if (!pingCount || true) {
                 this.sendStateRPC({}, -1, 0, 'ping');
                 console.log("SDK Ping sent!");
@@ -2144,8 +2162,25 @@ class Client extends events_1.EventEmitter {
         if (this.ws) {
             this.ws.close();
         }
-        this.webRtcPeers = [];
         this.sessionInfo = [];
+    }
+    getPeerById(uUID, refId = null) {
+        var _a, _b, _c, _d, _e, _f, _g;
+        if (!refId || this.sessionInfo[uUID].callType != "many_to_many") {
+            refId = this.currentUser;
+        }
+        let webRTCPeer = (_c = (_b = (_a = this.sessionInfo[uUID]) === null || _a === void 0 ? void 0 : _a.participants) === null || _b === void 0 ? void 0 : _b[refId]) === null || _c === void 0 ? void 0 : _c.peerConnection;
+        if (!webRTCPeer && ((_d = this.sessionInfo[uUID]) === null || _d === void 0 ? void 0 : _d.participants)) { //if there is only one peer and not found above then we are auto piking it.
+            let all = Object.keys((_e = this.sessionInfo[uUID]) === null || _e === void 0 ? void 0 : _e.participants);
+            if (all.length == 1) {
+                webRTCPeer = (_g = (_f = this.sessionInfo[uUID]) === null || _f === void 0 ? void 0 : _f.participants) === null || _g === void 0 ? void 0 : _g[all[0]];
+            }
+        }
+        if (!webRTCPeer) {
+            console.error("Unable to find peer connection object", uUID, refId, this.sessionInfo);
+            console.trace();
+        }
+        return webRTCPeer;
     }
     getDeviceId() {
         let machineId = localStorage.getItem('VDOTOKDeviceId');
@@ -3567,6 +3602,8 @@ class SingleStreamHelper {
         this.audioContextDest = null;
         this.createdFromContext = 0;
         this.emptyStreamInterval = null;
+        this.currentStreamType = "camera";
+        this.currentFaceMode = "user";
         this.publicIps = [];
         this.checkOnlineStatus = async () => {
             try {
@@ -3612,16 +3649,34 @@ class SingleStreamHelper {
         return new Promise((resolve) => setTimeout(resolve, time));
     }
     async getStream(audio = true, video = true, type = "camera", facingMode = "user") {
-        if (video && type == "screen") {
-            this.screenSharingMobile = new ScreenSharingMobile_1.default(this.emitter);
-            this.videoStream = await this.screenSharingMobile.getScreenShareStream(false);
-        }
         const options = { audio: false, video: false };
         if (audio) {
             options.audio = {
                 echoCancellation: true,
                 noiseSuppression: true,
             };
+        }
+        if (video && this.videoStream && this.videoStream.active && this.currentStreamType === type && type === "camera") {
+            if ((audio && this.createdFromContext) || (audio && !this.audioStream.active)) {
+                this.audioStream = await navigator.mediaDevices.getUserMedia({ audio: options.audio });
+            }
+            return {
+                audio: this.audioStream,
+                video: this.videoStream,
+                combine: this.getCombine()
+            };
+        }
+        if (audio && this.audioStream && this.audioStream.active && type === "audio") {
+            return {
+                audio: this.audioStream,
+                video: this.videoStream,
+                combine: this.getCombine()
+            };
+        }
+        if (video && type == "screen") {
+            this.screenSharingMobile = new ScreenSharingMobile_1.default(this.emitter);
+            this.videoStream = await this.screenSharingMobile.getScreenShareStream(false);
+            this.currentStreamType = type;
         }
         if (video && type == "camera") {
             if (this.aStream) {
@@ -3646,10 +3701,16 @@ class SingleStreamHelper {
                 else {
                     options.video.facingMode = { exact: facingMode };
                 }
+                this.currentFaceMode = facingMode;
             }
             else if (this.detectMob()) {
                 options.video.facingMode = { exact: "user" };
+                this.currentFaceMode = "user";
             }
+            else {
+                this.currentFaceMode = "user";
+            }
+            this.currentStreamType = type;
         }
         this.aStream = new MediaStream();
         if (options.audio || options.video) {
@@ -3661,6 +3722,7 @@ class SingleStreamHelper {
             }
         }
         if (options.audio && this.aStream) {
+            this.createdFromContext = 0;
             this.audioStream = new MediaStream(this.aStream.getAudioTracks());
         }
         else {
@@ -3675,6 +3737,17 @@ class SingleStreamHelper {
                 this.black({ width: 640, height: 480 }),
             ]);
         }
+        const finalResults = {
+            video: this.videoStream,
+            audio: this.audioStream,
+            combine: this.getCombine(),
+        };
+        if (this.screenSharingMobile && video && type == "screen") {
+            finalResults.nativeScreenShare = this.screenSharingMobile.nativeScreenShare;
+        }
+        return finalResults;
+    }
+    getCombine() {
         const combine = [];
         if (this.videoStream) {
             /*try {
@@ -3695,15 +3768,7 @@ class SingleStreamHelper {
         if (this.audioStream) {
             combine.push(this.audioStream.getAudioTracks()[0]);
         }
-        const finalResults = {
-            video: this.videoStream,
-            audio: this.audioStream,
-            combine: new MediaStream(combine),
-        };
-        if (this.screenSharingMobile && video && type == "screen") {
-            finalResults.nativeScreenShare = this.screenSharingMobile.nativeScreenShare;
-        }
-        return finalResults;
+        return new MediaStream(combine);
     }
     detectMob() {
         const toMatch = [
@@ -27752,12 +27817,8 @@ class PeerM2M {
             });
         });
     }
-    getRTCPeerByID(uUID, ref_id) {
-        const participant = this.instance.sessionInfo[uUID]["participants"][ref_id];
-        return participant;
-    }
     AddCandidate(message) {
-        const participant = this.getRTCPeerByID(message.sessionUuid, message.from);
+        const participant = this.instance.getPeerById(message.sessionUuid, message.from);
         console.log("Add Ice Candidate::::", message, participant);
         if (participant) {
             participant.peerConnection.addIceCandidate(message.candidate, (error) => {
@@ -27773,7 +27834,7 @@ class PeerM2M {
     }
     CallResponse(message) {
         var _a, _b;
-        const participant = this.getRTCPeerByID(message.sessionUuid, (_a = message.from) !== null && _a !== void 0 ? _a : message.referenceId);
+        const participant = this.instance.getPeerById(message.sessionUuid, (_a = message.from) !== null && _a !== void 0 ? _a : message.referenceId);
         console.info("CallResponse", participant, message);
         if (message.response == "accepted" || (message.sdpType == "sdp_answer" && message.sdp)) {
             participant.peerConnection.processAnswer((_b = message.sdpAnswer) !== null && _b !== void 0 ? _b : message.sdp, (error) => {
