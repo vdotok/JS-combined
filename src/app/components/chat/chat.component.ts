@@ -16,7 +16,10 @@ import { MessageModel, onlineOfflineModel, receiptModel, typingModel } from 'src
 import { Subscription, timer } from 'rxjs';
 import { VdkM2MCallService } from 'src/app/shared/services/vdk-m2m-call.service';
 import { VdkOne2OneCallService } from 'src/app/shared/services/vdk-one2one-call.service';
-
+import {
+  EventEmitter,
+  Output,
+} from "@angular/core";
 @Component({
   selector: 'chat',
   templateUrl: './chat.component.html',
@@ -37,6 +40,9 @@ export class ChatComponent implements OnInit {
   @ViewChild('groupOngoingAudioCall') groupOngoingAudioCall: TemplateRef<any>;
   @ViewChild('groupIncommingVideoCall') groupIncommingVideoCall: TemplateRef<any>;
   @ViewChild('groupVideoCall') groupVideoCall: TemplateRef<any>;
+
+  @Output() setActiveChatt = new EventEmitter<string>();
+  @Output() changeEvent = new EventEmitter<string>();
 
 
   ongoingCall = false;
@@ -242,25 +248,29 @@ export class ChatComponent implements OnInit {
       }
     });
     this.getUsers();
-
     this.pubsubService.Client.on("authentication_error", (res: any) => {
       console.log("authentication_error", res);
     });
-
-
     this.pubsubService.Client.on("offline", response => {
       console.log("offline", response);
       this.setOfflineStatus(response);
     });
-
     this.pubsubService.Client.on("online", (response: onlineOfflineModel) => {
       console.log("online", response);
       this.setOnlineStatus(response);
     });
+    this.pubsubService.Client.on("subscribed", response => {
+      console.log("subscribed", response);
+      this.setOnlineStatusforSubscribe(response);
+    });
 
     this.pubsubService.Client.on("message", response => {
+      console.log("** on-message response: \n\n", response);
       response = JSON.parse(JSON.stringify(response));
       //console.trace("new message", response);
+      if (response.data) {
+        this.updateGroup(response);
+      } 
       if (response.type == 'text' || response.type == 'file' || response.type == 'image' || response.type == 'audio' || response.type == 'video') {
         this.scroll();
         const chatthread = this.findChatThread(response.to);
@@ -295,10 +305,11 @@ export class ChatComponent implements OnInit {
       }
     });
 
-    this.pubsubService.Client.on("subscribed", response => {
-      console.log("subscribed", response);
-      this.setOnlineStatusforSubscribe(response);
-    });
+
+
+
+    
+
 
     if (this.messageInputElement) {
       fromEvent(this.messageInputElement.nativeElement, 'input')
@@ -324,22 +335,103 @@ export class ChatComponent implements OnInit {
     }
   }
 
-  getUsers() {
-    const data = {
-      sorting: "ORDER BY full_name ASC",
-      search_field: "full_name",
-      search_value: '',
-      condition: "contains",
-    }
-    this.svc.post('AllUsers', data).subscribe(res => {
-      this.loading = false;
-      if (res.status == 200) {
-        this.CopyAllUsers = [...res.users];
-        this.AllUsers = res.users;
+  updateGroup(grp_info) {
+    console.log("** in update group function \n\n");
+    let new_group = grp_info.data.groupModel;
+    // return;
+    if(grp_info.data.action == "new") {
+      let chat = grp_info.data.groupModel;
+      // console.log("** grp", chat);
+      if (chat['participants'].length) {
+        chat['participants'] = chat['participants'].map(r => {
+          r['username'] = r['username'] || r['full_name'];
+          return r;
+        });
       }
-    })
+      chat['chatTitle'] = chat.auto_created ? chat['participants'][0]['full_name'] : chat.group_title;
+      chat['Online'] = false;
+      chat['key'] = chat.channel_key;
+      chat['channel'] = chat.channel_name;
+      chat['chatHistory'] = [];
+      chat['TotalParticipants'] = chat['participants'].length;
+      chat['onlineParticipants'] = 1;
+      chat['isSeen'] = true;
+      console.log("!!! final grp before pushing: \n\n",this,"\n", chat, "\n\n" ,this.AllGroups);
+      
+      this.AllGroups.push(chat);
+      // this.setActiveChat(chat);
+      this.changeEvent.emit("THREAD");
+      //chat.clicked_item = "chat";
+      this.setActiveChatt.emit(chat);
+      this.loading = false;
+
+      console.log("** group added successfully\n", grp_info, "\n");  //{new_group}, {index}, this.AllGroups   
+    }
+
+
+    if(grp_info.data.action == "delete") {
+      //console.log("$$ group deleted successfully-before\n" , this.AllGroups);
+      // let cn = grp_info.data.groupModel;
+      let index = this.AllGroups.findIndex((grp)=> grp.channel_name == new_group.channel_name);
+      if(index > -1) {
+        this.AllGroups.splice(index, 1);
+        this.pubsubService.unsubscribeToChat({key: new_group.channel_key, channel: new_group.channel_name});
+        this.changeDetector.detectChanges();
+      }
+      console.log("** group deleted successfully\n", grp_info, "\n");  //{new_group}, {index}, this.AllGroups
+    }
+
+
+    if(grp_info.data.action == "modify") {
+      let grp_ind = this.AllGroups.findIndex((g)=> g.channel_name === g.channel_name);  
+      // console.log("*** edit notification:\n", new_group, "\n", this.AllGroups, "\n");
+      if(grp_ind > -1) {
+        this.AllGroups[grp_ind].group_title = new_group.group.group_title;
+        this.AllGroups[grp_ind].chatTitle = new_group.group.group_title; 
+        console.log("*** edit notification:\n", new_group, "\n", this.AllGroups, "\n",new_group.group.group_title);
+      }
+      
+    }
+    
+    
+
   }
 
+  //** */
+  editGroup() {
+    FormsHandler.validateForm(this.groupForm);
+    console.log("this.groupForm.", this.groupForm.invalid);
+    if (this.groupForm.invalid || this.loading) return;
+    const playload = this.groupForm.value;
+    this.loading = true;
+    this.svc.post('RenameGroup', playload).subscribe(v => {
+      if (v && v.status == 200) {
+        this.getAllGroups();
+
+        //ABM
+        let participants_ref_ids = [];
+        v.group.participants.map((p) => {
+          participants_ref_ids.push(p.ref_id);
+        });
+        const groupInfo = {
+          from: StorageService.getUserData().ref_id,
+          to: participants_ref_ids,
+          action: "modify",
+          groupModel: v
+          
+        };
+        console.log("*** edit grppp  -sending side:\n", groupInfo, "/n", v);
+        this.pubsubService.sendNotificationOnGroupUpdation(groupInfo);
+        //ABM
+
+        this.editGroupModel = false;
+        this.loading = false;
+        this.toastr.success('The group has been updated!', 'Success!');
+      }
+    });
+  }
+
+  //** */
   deleteGroup(group) {
     this.loading = true;
     const playload = {
@@ -349,6 +441,22 @@ export class ChatComponent implements OnInit {
       this.changeDetector.detectChanges();
       if (v && v.status == 200) {
         this.loading = false;
+        //AMB
+        let participants_ref_ids = [];
+        group.participants.map((p) => {
+          participants_ref_ids.push(p.ref_id);
+        });
+        const groupInfo = {
+          from: StorageService.getUserData().ref_id,
+          to: participants_ref_ids,
+          action: "delete",
+          groupModel: v
+        };
+        console.log("** delete group: ", groupInfo, group);
+        this.pubsubService.sendNotificationOnGroupUpdation(groupInfo);
+        //ABM
+
+
         this.getAllGroups();
         this.toastr.success('The group has been deleted!', 'Success!');
       } else {
@@ -359,32 +467,14 @@ export class ChatComponent implements OnInit {
     });
   }
 
-  openModal(group) {
-    if (group.auto_created) {
-      alert('Can not change One to one group title');
-      return;
-    }
-    group['group_id'] = group.id
-    this.groupForm.reset(group);
-    this.editGroupModel = true;
-    this.changeDetector.detectChanges();
-  }
 
-  editGroup() {
-    FormsHandler.validateForm(this.groupForm);
-    console.log("this.groupForm.", this.groupForm.invalid);
-    if (this.groupForm.invalid || this.loading) return;
-    const playload = this.groupForm.value;
-    this.loading = true;
-    this.svc.post('RenameGroup', playload).subscribe(v => {
-      if (v && v.status == 200) {
-        this.getAllGroups();
-        this.editGroupModel = false;
-        this.loading = false;
-        this.toastr.success('The group has been updated!', 'Success!');
-      }
-    });
-  }
+  
+
+
+
+
+
+
 
   getAllGroups() {
     this.loading = true;
@@ -408,6 +498,11 @@ export class ChatComponent implements OnInit {
           chat['isSeen'] = true;
           return chat;
         });
+
+
+
+
+
         console.log("this.activeChat.chatTitle", this.activeChat);
         if (!this.activeChat.chatTitle) {
           this.activeChat = this.AllGroups.length ? this.AllGroups['0'] : {};
@@ -428,6 +523,36 @@ export class ChatComponent implements OnInit {
     });
   }
 
+
+  getUsers() {
+    const data = {
+      sorting: "ORDER BY full_name ASC",
+      search_field: "full_name",
+      search_value: '',
+      condition: "contains",
+    }
+    this.svc.post('AllUsers', data).subscribe(res => {
+      this.loading = false;
+      if (res.status == 200) {
+        this.CopyAllUsers = [...res.users];
+        this.AllUsers = res.users;
+      }
+    })
+  }
+
+
+  openModal(group) {
+    if (group.auto_created) {
+      alert('Can not change One to one group title');
+      return;
+    }
+    group['group_id'] = group.id
+    this.groupForm.reset(group);
+    this.editGroupModel = true;
+    this.changeDetector.detectChanges();
+  }
+
+
   checkFileType(content: any) {
     let preview = content.includes('text/plain') ? ('./assets/images/txt.png') : content.includes('/pdf') ? ('./assets/images/pdf.png') : content.includes('/json') ? ('./assets/images/json.png') : 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Icon-doc.svg/810px-Icon-doc.svg.png';
     if (content.includes('video/'))
@@ -437,13 +562,16 @@ export class ChatComponent implements OnInit {
     return preview;
   }
 
+
   fileType(content: any) {
     return content.split(";")[0].split(":")[1]
   }
 
+
   findChatThread(channel) {
     return FindArrayObject(this.AllGroups, 'channel_name', channel);
   }
+
 
   setActiveChat(group) {
     console.log("clicke");
@@ -457,6 +585,8 @@ export class ChatComponent implements OnInit {
     this.readsendMessage(group.chatHistory);
     this.changeDetector.detectChanges();
   }
+
+
   setChatDuringCall(){
     console.log("active chat" , this.activeChat);
     document.getElementById("returnedtocall").style.display = 'flex';
@@ -467,6 +597,8 @@ export class ChatComponent implements OnInit {
     document.getElementById("sendInputContainer").style.display = 'flex';
     document.getElementById('roomNameText').style.display = "block";
   }
+
+
   returntoCall(){
     document.getElementById('appendChatDuringCall').style.display = "none";
     document.getElementById('returnedtocall').style.display = "none";
@@ -474,6 +606,8 @@ export class ChatComponent implements OnInit {
     document.getElementById('roomNameText').style.display = "none";
     document.getElementById("sendInputContainer").style.display = 'none';
   }
+
+
   setchat(chat) {
     
     this.setActiveChat(chat);
@@ -485,6 +619,7 @@ export class ChatComponent implements OnInit {
       this.startOne2OneVideoCall();
     }
   }
+
 
   readSingleMessage(response, isActiveThread) {
     if (response.from == this.currentUserName || !isActiveThread) return;
@@ -498,6 +633,7 @@ export class ChatComponent implements OnInit {
     };
     this.pubsubService.readSingleMessage(chatobj);
   }
+
 
   readsendMessage(chatHistory) {
     const unreadchatHistory = chatHistory.filter(chat => !chat.isRead).map(chat => {
@@ -518,9 +654,11 @@ export class ChatComponent implements OnInit {
     });
   }
 
+
   handleFileInput(files: FileList) {
     this.fileToSend = files.item(0);
   }
+
 
   invalidSize() {
     return ((this.fileToSend.size / 1024) > 6144);

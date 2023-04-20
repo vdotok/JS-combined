@@ -169,8 +169,9 @@ export class AddGroupComponent implements OnInit {
     }
   }
 
-  addGroup() {
+  addGroup() {  
     FormsHandler.validateForm(this.form);
+    console.log("$$ before: ", this.selectedUsers)
     const useridArray = this.selectedUsers.map(user => user.user_id);
     console.log("userIdArray" , useridArray);
     if (this.form.invalid || !useridArray.length || this.loading) return;
@@ -191,11 +192,29 @@ export class AddGroupComponent implements OnInit {
     this.svc.post('CreateGroup', data).subscribe(v => {
       this.changeDetector.detectChanges();
       if (v && v.status == 200) {
+          console.log("$$ after: ", this.selectedUsers)
+          let participants_ref_ids = [];
+          this.selectedUsers.map((p) => {
+            participants_ref_ids.push(p.ref_id);
+          });
+          //participants_ref_ids.push(StorageService.getUserData().ref_id);
+          //ABM - M2M GROUP CASE:
+          const groupInfo = {
+            from: StorageService.getUserData().ref_id,
+            to: participants_ref_ids,
+            action: "new",
+            groupModel: v.group 
+          };
+          console.log("$$ ** M2M = notification send on M2M group creation :\n\n", groupInfo);
+          this.pubsubService.sendNotificationOnGroupUpdation(groupInfo);
+  
+          //
         this.groupnameError = '';
         this.setActiveChat.emit(v.group);
         this.toastr.success('Success!', 'The group has been created!');
         this.closemodel();
         this.form.reset();
+      
       }
       this.selectedUsers = [];
       this.changeDetector.detectChanges();

@@ -18,7 +18,7 @@ export class PubsubService implements OnDestroy {
   public initConfigure(): void {
     const user = StorageService.getUserData();
     this.Client = new MVDOTOK.Client({
-      projectID: "115G1WZI",
+      projectID: "1RN1RP",//"115G1WZI",
       host: `${user.messaging_server_map.complete_address}`
     });
     this.Client.Register(user.ref_id.toString(), user.authorization_token.toString());
@@ -52,5 +52,10 @@ export class PubsubService implements OnDestroy {
   readSingleMessage(chatMessages) {
     this.Client.SendReceipt(chatMessages);
   }
+
+  sendNotificationOnGroupUpdation(obj) {
+    this.Client.SendNotification(obj);
+  }
+
 
 }
