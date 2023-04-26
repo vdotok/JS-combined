@@ -363,34 +363,36 @@ class Client extends events_1.EventEmitter {
                         clearTimeout(this.reconnectCheckInterval[messageData.sessionUuid]);
                     }
                     let participant = false;
-                    if (this.sessionInfo[messageData.sessionUuid]) {
-                        participant = this.sessionInfo[messageData.sessionUuid];
+                    let sessionInfo = this.sessionInfo[messageData.sessionUuid];
+                    if (sessionInfo) {
+                        participant = this.getPeerById(messageData.sessionUuid);
                         if (this.isManyToMany && Object.keys(this.manyToMany).length) {
-                            if (this.manyToMany.isPeerCall) {
-                                participant = participant["participants"][messageData.from];
-                            }
-                            else {
+                            if (!this.manyToMany.isPeerCall) {
                                 this.manyToMany.AddCandidate(messageData);
                                 return;
                             }
                         }
                     }
-                    if (participant && participant.isInitiator && participant.callType == "one_to_one") {
+                    else {
+                        console.warn("Current Call Session Info not found! reseived Message = ", messageData);
+                        return;
+                    }
+                    if (participant && sessionInfo.isInitiator && sessionInfo.callType == "one_to_one") {
                         this.AddCandidate(messageData);
                     }
                     else {
-                        if ((_a = participant === null || participant === void 0 ? void 0 : participant.peerConnection) === null || _a === void 0 ? void 0 : _a.peerConnection.currentRemoteDescription) {
+                        if ((_a = participant === null || participant === void 0 ? void 0 : participant.peerConnection) === null || _a === void 0 ? void 0 : _a.currentRemoteDescription) {
                             this.AddCandidate(messageData);
                         }
                         else {
-                            if (!participant.receivedRemoteCandidates) {
+                            if (participant && !participant.receivedRemoteCandidates) {
                                 participant.receivedRemoteCandidates = [];
                             }
                             participant.receivedRemoteCandidates.push(messageData);
                             if (!participant.isRemoteSDPAvailable) {
                                 participant.isRemoteSDPAvailable = setInterval(() => {
-                                    var _a, _b;
-                                    if ((_b = (_a = participant === null || participant === void 0 ? void 0 : participant.peerConnection) === null || _a === void 0 ? void 0 : _a.peerConnection) === null || _b === void 0 ? void 0 : _b.currentRemoteDescription) {
+                                    var _a;
+                                    if ((_a = participant === null || participant === void 0 ? void 0 : participant.peerConnection) === null || _a === void 0 ? void 0 : _a.currentRemoteDescription) {
                                         clearInterval(participant.isRemoteSDPAvailable);
                                         participant.isRemoteSDPAvailable = null;
                                         console.log("Processing stored ice candidates!");
@@ -611,8 +613,8 @@ class Client extends events_1.EventEmitter {
             }
             params.video = this.videoStatus[uUID] ? 1 : (params.video ? 1 : 0);
             params.audio = this.audioStatus[uUID] ? 1 : (params.audio ? 1 : 0);
-            params.re_invite = 1;
-            params.ref_id = this.currentUser || params.ref_id;
+            params.reInvite = 1;
+            params.refId = this.currentUser || params.refId;
             params.sessionUuid = uUID;
             params.isPeer = this.sessionInfo[uUID] ? this.sessionInfo[uUID].isPeer : (params.isPeer ? 1 : 0);
             params.callType = this.sessionInfo[uUID] ? this.sessionInfo[uUID].callType : ((_a = params.callType) !== null && _a !== void 0 ? _a : "one_to_one");
@@ -654,7 +656,7 @@ class Client extends events_1.EventEmitter {
     PeerToPeerReInvite(messageData) {
         var _a, _b;
         let webRTCPeer = this.getPeerById(messageData.sessionUuid, (_a = messageData.from) !== null && _a !== void 0 ? _a : messageData.referenceId);
-        if (messageData.sdpType === "sdp_anwser") {
+        if (messageData.sdpType === "sdp_answer") {
             try {
                 if (webRTCPeer) {
                     if (messageData.sdp) {
@@ -993,9 +995,19 @@ class Client extends events_1.EventEmitter {
         }
     }
     async AcceptCall(params) {
+        if (!params.uUID) {
+            params.uUID = params.sessionUuid;
+        }
         params.callType = this.sessionInfo[params.uUID] && this.sessionInfo[params.uUID].callType ? this.sessionInfo[params.uUID].callType : "one_to_one";
         params.isInitiator = 0;
-        params.isPeer = params.hasOwnProperty('isPeer') ? params.isPeer : 1;
+        if (!params.hasOwnProperty('isPeer')) {
+            if (this.sessionInfo[params.uUID].hasOwnProperty('isPeer')) {
+                params.isPeer = this.sessionInfo[params.uUID].isPeer;
+            }
+            else {
+                params.isPeer = 1;
+            }
+        }
         return new Promise(async (resolve, rejects) => {
             var _a, _b, _c;
             this.localVideo = params.localVideo;
@@ -1512,9 +1524,9 @@ class Client extends events_1.EventEmitter {
         ///////for public url/group
         callRequest.custom_field("broadcastType", params.isPublic);
         callRequest.custom_field("associatedSessionUuid", params.assUUID);
-        if (params.re_invite && params.ref_id) {
+        if (params.reInvite && params.refId) {
             callRequest.requestType = 're_invite';
-            callRequest.referenceId = params.ref_id;
+            callRequest.referenceId = params.refId;
         }
         else {
             callRequest.requestType = 'session_invite';
@@ -1536,7 +1548,7 @@ class Client extends events_1.EventEmitter {
         }
         this.sendStateInformation(this.videoStatus[uUID], this.audioStatus[uUID], uUID, {
             fromVideo: true,
-            reInvite: params.re_invite
+            reInvite: params.reInvite
         });
     }
     onIceError(uUID, ev, refID) {
@@ -1602,17 +1614,17 @@ class Client extends events_1.EventEmitter {
         else {
             callRequest.callType = params.callType ? params.callType : "one_to_one";
         }
-        if (callRequest.callType === "many_to_many" && params.participantArray && params.participantArray.length) {
-            callRequest.participantArray = params.participantArray;
+        if (callRequest.callType === "many_to_many" && params.participants && params.participants.length) {
+            callRequest.participants = params.participants;
         }
-        if (params.re_invite || params.requestType == "to_receive_stream") {
+        if (params.reInvite || params.requestType == "to_receive_stream") {
             callRequest.sdp = offerSdp;
             callRequest.sdpType = "sdp_offer";
             callRequest.sdpOffer = "";
             delete callRequest.sdpOffer;
         }
-        if (params.re_invite && params.ref_id) {
-            callRequest.referenceId = params.ref_id;
+        if (params.reInvite && params.refId) {
+            callRequest.referenceId = params.refId;
             callRequest.requestType = 're_invite';
             if (callRequest.isPeer) {
                 callRequest.requestType = 'p2p_reInvite';
@@ -1638,12 +1650,12 @@ class Client extends events_1.EventEmitter {
         this.UUIDSessionTypes[uUID] = callRequest.callType;
         console.log(' OnOfferCall :: :: ::', mediaType);
         this.sendStateInformation(this.videoStatus[uUID], this.audioStatus[uUID], uUID, {});
-        if (params.re_invite) {
+        if (params.reInvite) {
             EventHandler_1.default.SetCallerStatus({
                 videoInformation: this.videoStatus[uUID],
                 audioInformation: this.audioStatus[uUID],
                 sessionUuid: uUID,
-                referenceId: params.ref_id,
+                referenceId: params.refId,
                 data: {}
             }, this);
         }
@@ -1703,6 +1715,9 @@ class Client extends events_1.EventEmitter {
     }
     onIceCandidate(candidate, uUID, refId) {
         console.log("Local candidate" + JSON.stringify(candidate));
+        if (!refId) {
+            refId = this.currentUser;
+        }
         var message = {
             id: 'ice_candidate',
             requestType: 'ice_candidate',
@@ -2165,15 +2180,16 @@ class Client extends events_1.EventEmitter {
         this.sessionInfo = [];
     }
     getPeerById(uUID, refId = null) {
-        var _a, _b, _c, _d, _e, _f, _g;
+        var _a, _b, _c, _d, _e, _f, _g, _h;
         if (!refId || this.sessionInfo[uUID].callType != "many_to_many") {
             refId = this.currentUser;
         }
         let webRTCPeer = (_c = (_b = (_a = this.sessionInfo[uUID]) === null || _a === void 0 ? void 0 : _a.participants) === null || _b === void 0 ? void 0 : _b[refId]) === null || _c === void 0 ? void 0 : _c.peerConnection;
-        if (!webRTCPeer && ((_d = this.sessionInfo[uUID]) === null || _d === void 0 ? void 0 : _d.participants)) { //if there is only one peer and not found above then we are auto piking it.
+        //if there is only one peer and not found above then we are auto piking it.
+        if (!webRTCPeer && ((_d = this.sessionInfo[uUID]) === null || _d === void 0 ? void 0 : _d.participants)) {
             let all = Object.keys((_e = this.sessionInfo[uUID]) === null || _e === void 0 ? void 0 : _e.participants);
             if (all.length == 1) {
-                webRTCPeer = (_g = (_f = this.sessionInfo[uUID]) === null || _f === void 0 ? void 0 : _f.participants) === null || _g === void 0 ? void 0 : _g[all[0]];
+                webRTCPeer = (_h = (_g = (_f = this.sessionInfo[uUID]) === null || _f === void 0 ? void 0 : _f.participants) === null || _g === void 0 ? void 0 : _g[all[0]]) === null || _h === void 0 ? void 0 : _h.peerConnection;
             }
         }
         if (!webRTCPeer) {
@@ -2994,7 +3010,8 @@ class EventHandlerService {
         }
     }
     updateCallState(instance, uuid, state) {
-        if (instance.sessionInfo[uuid]) {
+        var _a;
+        if ((_a = instance === null || instance === void 0 ? void 0 : instance.sessionInfo) === null || _a === void 0 ? void 0 : _a[uuid]) {
             instance.sessionInfo[uuid].call_state = state;
         }
     }
@@ -3534,11 +3551,11 @@ class CallRequestModel {
     get isPeer() {
         return this.ReqPacket.isPeer;
     }
-    set participantArray(participantArray) {
-        this.ReqPacket.participantArray = participantArray;
+    set participants(participants) {
+        this.ReqPacket.participants = participants;
     }
-    get participantArray() {
-        return this.ReqPacket.participantArray;
+    get participants() {
+        return this.ReqPacket.participants;
     }
     custom_field(field, value) {
         this.ReqPacket[field] = value;
@@ -25253,7 +25270,7 @@ exports.WebRtcPeerHelper = WebRtcPeerHelper;
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_RESULT__;/////////////////////////////////////////////////////////////////////////////////
-/* UAParser.js v1.0.33
+/* UAParser.js v1.0.35
    Copyright © 2012-2021 Faisal Salman <f@faisalman.com>
    MIT License *//*
    Detect Browser, Engine, OS, CPU, and Device type/model from User-Agent data.
@@ -25271,7 +25288,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
     /////////////
 
 
-    var LIBVERSION  = '1.0.33',
+    var LIBVERSION  = '1.0.35',
         EMPTY       = '',
         UNKNOWN     = '?',
         FUNC_TYPE   = 'function',
@@ -25310,9 +25327,12 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
         SAMSUNG = 'Samsung',
         SHARP   = 'Sharp',
         SONY    = 'Sony',
+        VIERA   = 'Viera',
         XIAOMI  = 'Xiaomi',
         ZEBRA   = 'Zebra',
-        FACEBOOK   = 'Facebook';
+        FACEBOOK    = 'Facebook',
+        CHROMIUM_OS = 'Chromium OS',
+        MAC_OS  = 'Mac OS';
 
     ///////////
     // Helper
@@ -25370,6 +25390,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
                 // try matching uastring with regexes
                 while (j < regex.length && !matches) {
 
+                    if (!regex[j]) { break; }
                     matches = regex[j++].exec(ua);
 
                     if (!!matches) {
@@ -25486,8 +25507,9 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             /(?:ms|\()(ie) ([\w\.]+)/i,                                         // Internet Explorer
 
             // Webkit/KHTML based                                               // Flock/RockMelt/Midori/Epiphany/Silk/Skyfire/Bolt/Iron/Iridium/PhantomJS/Bowser/QupZilla/Falkon
-            /(flock|rockmelt|midori|epiphany|silk|skyfire|ovibrowser|bolt|iron|vivaldi|iridium|phantomjs|bowser|quark|qupzilla|falkon|rekonq|puffin|brave|whale|qqbrowserlite|qq|duckduckgo)\/([-\w\.]+)/i,
+            /(flock|rockmelt|midori|epiphany|silk|skyfire|bolt|iron|vivaldi|iridium|phantomjs|bowser|quark|qupzilla|falkon|rekonq|puffin|brave|whale(?!.+naver)|qqbrowserlite|qq|duckduckgo)\/([-\w\.]+)/i,
                                                                                 // Rekonq/Puffin/Brave/Whale/QQBrowserLite/QQ, aka ShouQ
+            /(heytap|ovi)browser\/([\d\.]+)/i,                                  // Heytap/Ovi
             /(weibo)__([\d\.]+)/i                                               // Weibo
             ], [NAME, VERSION], [
             /(?:\buc? ?browser|(?:juc.+)ucweb)[\/ ]?([\w\.]+)/i                 // UCBrowser
@@ -25501,7 +25523,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             ], [VERSION, [NAME, 'Konqueror']], [
             /trident.+rv[: ]([\w\.]{1,9})\b.+like gecko/i                       // IE11
             ], [VERSION, [NAME, 'IE']], [
-            /yabrowser\/([\w\.]+)/i                                             // Yandex
+            /ya(?:search)?browser\/([\w\.]+)/i                                  // Yandex
             ], [VERSION, [NAME, 'Yandex']], [
             /(avast|avg)\/([\w\.]+)/i                                           // Avast/AVG Secure Browser
             ], [[NAME, /(.+)/, '$1 Secure '+BROWSER], VERSION], [
@@ -25537,12 +25559,16 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             // WebView
             /((?:fban\/fbios|fb_iab\/fb4a)(?!.+fbav)|;fbav\/([\w\.]+);)/i       // Facebook App for iOS & Android
             ], [[NAME, FACEBOOK], VERSION], [
+            /(kakao(?:talk|story))[\/ ]([\w\.]+)/i,                             // Kakao App
+            /(naver)\(.*?(\d+\.[\w\.]+).*\)/i,                                  // Naver InApp
             /safari (line)\/([\w\.]+)/i,                                        // Line App for iOS
             /\b(line)\/([\w\.]+)\/iab/i,                                        // Line App for Android
             /(chromium|instagram)[\/ ]([-\w\.]+)/i                              // Chromium/Instagram
             ], [NAME, VERSION], [
             /\bgsa\/([\w\.]+) .*safari\//i                                      // Google Search Appliance on iOS
             ], [VERSION, [NAME, 'GSA']], [
+            /musical_ly(?:.+app_?version\/|_)([\w\.]+)/i                        // TikTok
+            ], [VERSION, [NAME, 'TikTok']], [
 
             /headlesschrome(?:\/([\w\.]+)| )/i                                  // Chrome Headless
             ], [VERSION, [NAME, CHROME+' Headless']], [
@@ -25583,7 +25609,8 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             // Other
             /(polaris|lynx|dillo|icab|doris|amaya|w3m|netsurf|sleipnir|obigo|mosaic|(?:go|ice|up)[\. ]?browser)[-\/ ]?v?([\w\.]+)/i,
                                                                                 // Polaris/Lynx/Dillo/iCab/Doris/Amaya/w3m/NetSurf/Sleipnir/Obigo/Mosaic/Go/ICE/UP.Browser
-            /(links) \(([\w\.]+)/i                                              // Links
+            /(links) \(([\w\.]+)/i,                                             // Links
+            /panasonic;(viera)/i                                                // Panasonic Viera
             ], [NAME, VERSION], [
             
             /(cobalt)\/([\w\.]+)/i                                              // Cobalt
@@ -25626,19 +25653,18 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             //////////////////////////
             // MOBILES & TABLETS
-            // Ordered by popularity
             /////////////////////////
 
             // Samsung
             /\b(sch-i[89]0\d|shw-m380s|sm-[ptx]\w{2,4}|gt-[pn]\d{2,4}|sgh-t8[56]9|nexus 10)/i
             ], [MODEL, [VENDOR, SAMSUNG], [TYPE, TABLET]], [
-            /\b((?:s[cgp]h|gt|sm)-\w+|galaxy nexus)/i,
+            /\b((?:s[cgp]h|gt|sm)-\w+|sc[g-]?[\d]+a?|galaxy nexus)/i,
             /samsung[- ]([-\w]+)/i,
             /sec-(sgh\w+)/i
             ], [MODEL, [VENDOR, SAMSUNG], [TYPE, MOBILE]], [
 
             // Apple
-            /\((ip(?:hone|od)[\w ]*);/i                                         // iPod/iPhone
+            /(?:\/|\()(ip(?:hone|od)[\w, ]*)(?:\/|;)/i                          // iPod/iPhone
             ], [MODEL, [VENDOR, APPLE], [TYPE, MOBILE]], [
             /\((ipad);[-\w\),; ]+apple/i,                                       // iPad
             /applecoremedia\/[\w\.]+ \((ipad)/i,
@@ -25646,6 +25672,10 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             ], [MODEL, [VENDOR, APPLE], [TYPE, TABLET]], [
             /(macintosh);/i
             ], [MODEL, [VENDOR, APPLE]], [
+
+            // Sharp
+            /\b(sh-?[altvz]?\d\d[a-ekm]?)/i
+            ], [MODEL, [VENDOR, SHARP], [TYPE, MOBILE]], [
 
             // Huawei
             /\b((?:ag[rs][23]?|bah2?|sht?|btv)-a?[lw]\d{2})\b(?!.+d\/s)/i
@@ -25724,7 +25754,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             // Amazon
             /(alexa)webm/i,
-            /(kf[a-z]{2}wi)( bui|\))/i,                                         // Kindle Fire without Silk
+            /(kf[a-z]{2}wi|aeo[c-r]{2})( bui|\))/i,                             // Kindle Fire without Silk / Echo Show
             /(kf[a-z]+)( bui|\)).+silk\//i                                      // Kindle Fire HD
             ], [MODEL, [VENDOR, AMAZON], [TYPE, TABLET]], [
             /((?:sd|kf)[0349hijorstuw]+)( bui|\)).+silk\//i                     // Fire Phone
@@ -25750,7 +25780,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             // ZTE
             /(zte)[- ]([\w ]+?)(?: bui|\/|\))/i,
-            /(alcatel|geeksphone|nexian|panasonic|sony(?!-bra))[-_ ]?([-\w]*)/i         // Alcatel/GeeksPhone/Nexian/Panasonic/Sony
+            /(alcatel|geeksphone|nexian|panasonic(?!(?:;|\.))|sony(?!-bra))[-_ ]?([-\w]*)/i         // Alcatel/GeeksPhone/Nexian/Panasonic/Sony
             ], [VENDOR, [MODEL, /_/g, ' '], [TYPE, MOBILE]], [
 
             // Acer
@@ -25761,10 +25791,6 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             /droid.+; (m[1-5] note) bui/i,
             /\bmz-([-\w]{2,})/i
             ], [MODEL, [VENDOR, 'Meizu'], [TYPE, MOBILE]], [
-
-            // Sharp
-            /\b(sh-?[altvz]?\d\d[a-ekm]?)/i
-            ], [MODEL, [VENDOR, SHARP], [TYPE, MOBILE]], [
 
             // MIXED
             /(blackberry|benq|palm(?=\-)|sonyericsson|acer|asus|dell|meizu|motorola|polytron)[-_ ]?([-\w]*)/i,
@@ -25777,6 +25803,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             /(oppo) ?([\w ]+) bui/i                                             // OPPO
             ], [VENDOR, MODEL, [TYPE, MOBILE]], [
 
+            /(kobo)\s(ereader|touch)/i,                                         // Kobo
             /(archos) (gamepad2?)/i,                                            // Archos
             /(hp).+(touchpad(?!.+tablet)|tablet)/i,                             // HP TouchPad
             /(kindle)\/([\w\.]+)/i,                                             // Kindle
@@ -25847,20 +25874,6 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             ], [MODEL, [VENDOR, ZEBRA], [TYPE, MOBILE]], [
 
             ///////////////////
-            // CONSOLES
-            ///////////////////
-
-            /(ouya)/i,                                                          // Ouya
-            /(nintendo) ([wids3utch]+)/i                                        // Nintendo
-            ], [VENDOR, MODEL, [TYPE, CONSOLE]], [
-            /droid.+; (shield) bui/i                                            // Nvidia
-            ], [MODEL, [VENDOR, 'Nvidia'], [TYPE, CONSOLE]], [
-            /(playstation [345portablevi]+)/i                                   // Playstation
-            ], [MODEL, [VENDOR, SONY], [TYPE, CONSOLE]], [
-            /\b(xbox(?: one)?(?!; xbox))[\); ]/i                                // Microsoft Xbox
-            ], [MODEL, [VENDOR, MICROSOFT], [TYPE, CONSOLE]], [
-
-            ///////////////////
             // SMARTTVS
             ///////////////////
 
@@ -25883,11 +25896,27 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             ], [MODEL, [VENDOR, SONY], [TYPE, SMARTTV]], [
             /(mitv-\w{5}) bui/i                                                 // Xiaomi
             ], [MODEL, [VENDOR, XIAOMI], [TYPE, SMARTTV]], [
+            /Hbbtv.*(technisat) (.*);/i                                         // TechniSAT
+            ], [VENDOR, MODEL, [TYPE, SMARTTV]], [
             /\b(roku)[\dx]*[\)\/]((?:dvp-)?[\d\.]*)/i,                          // Roku
-            /hbbtv\/\d+\.\d+\.\d+ +\([\w ]*; *(\w[^;]*);([^;]*)/i               // HbbTV devices
+            /hbbtv\/\d+\.\d+\.\d+ +\([\w\+ ]*; *([\w\d][^;]*);([^;]*)/i         // HbbTV devices
             ], [[VENDOR, trim], [MODEL, trim], [TYPE, SMARTTV]], [
             /\b(android tv|smart[- ]?tv|opera tv|tv; rv:)\b/i                   // SmartTV from Unidentified Vendors
             ], [[TYPE, SMARTTV]], [
+
+            ///////////////////
+            // CONSOLES
+            ///////////////////
+
+            /(ouya)/i,                                                          // Ouya
+            /(nintendo) ([wids3utch]+)/i                                        // Nintendo
+            ], [VENDOR, MODEL, [TYPE, CONSOLE]], [
+            /droid.+; (shield) bui/i                                            // Nvidia
+            ], [MODEL, [VENDOR, 'Nvidia'], [TYPE, CONSOLE]], [
+            /(playstation [345portablevi]+)/i                                   // Playstation
+            ], [MODEL, [VENDOR, SONY], [TYPE, CONSOLE]], [
+            /\b(xbox(?: one)?(?!; xbox))[\); ]/i                                // Microsoft Xbox
+            ], [MODEL, [VENDOR, MICROSOFT], [TYPE, CONSOLE]], [
 
             ///////////////////
             // WEARABLES
@@ -25895,11 +25924,13 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             /((pebble))app/i                                                    // Pebble
             ], [VENDOR, MODEL, [TYPE, WEARABLE]], [
+            /(watch)(?: ?os[,\/]|\d,\d\/)[\d\.]+/i                              // Apple Watch
+            ], [MODEL, [VENDOR, APPLE], [TYPE, WEARABLE]], [
             /droid.+; (glass) \d/i                                              // Google Glass
             ], [MODEL, [VENDOR, GOOGLE], [TYPE, WEARABLE]], [
             /droid.+; (wt63?0{2,3})\)/i
             ], [MODEL, [VENDOR, ZEBRA], [TYPE, WEARABLE]], [
-            /(quest( 2)?)/i                                                     // Oculus Quest
+            /(quest( 2| pro)?)/i                                                // Oculus Quest
             ], [MODEL, [VENDOR, FACEBOOK], [TYPE, WEARABLE]], [
 
             ///////////////////
@@ -25908,6 +25939,8 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             /(tesla)(?: qtcarbrowser|\/[-\w\.]+)/i                              // Tesla
             ], [VENDOR, [TYPE, EMBEDDED]], [
+            /(aeobc)\b/i                                                        // Echo Dot
+            ], [MODEL, [VENDOR, AMAZON], [TYPE, EMBEDDED]], [
 
             ////////////////////
             // MIXED (GENERIC)
@@ -25937,7 +25970,8 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             /(webkit|trident|netfront|netsurf|amaya|lynx|w3m|goanna)\/([\w\.]+)/i, // WebKit/Trident/NetFront/NetSurf/Amaya/Lynx/w3m/Goanna
             /ekioh(flow)\/([\w\.]+)/i,                                          // Flow
             /(khtml|tasman|links)[\/ ]\(?([\w\.]+)/i,                           // KHTML/Tasman/Links
-            /(icab)[\/ ]([23]\.[\d\.]+)/i                                       // iCab
+            /(icab)[\/ ]([23]\.[\d\.]+)/i,                                      // iCab
+            /\b(libweb)/i
             ], [NAME, VERSION], [
 
             /rv\:([\w\.]{1,9})\b.+(gecko)/i                                     // Gecko
@@ -25958,11 +25992,12 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             // iOS/macOS
             /ip[honead]{2,4}\b(?:.*os ([\w]+) like mac|; opera)/i,              // iOS
+            /ios;fbsv\/([\d\.]+)/i,
             /cfnetwork\/.+darwin/i
             ], [[VERSION, /_/g, '.'], [NAME, 'iOS']], [
             /(mac os x) ?([\w\. ]*)/i,
             /(macintosh|mac_powerpc\b)(?!.+haiku)/i                             // Mac OS
-            ], [[NAME, 'Mac OS'], [VERSION, /_/g, '.']], [
+            ], [[NAME, MAC_OS], [VERSION, /_/g, '.']], [
 
             // Mobile OSes
             /droid ([\w\.]+)\b.+(android[- ]x86|harmonyos)/i                    // Android-x86/HarmonyOS
@@ -25981,12 +26016,19 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             /web0s;.+rt(tv)/i,
             /\b(?:hp)?wos(?:browser)?\/([\w\.]+)/i                              // WebOS
             ], [VERSION, [NAME, 'webOS']], [
+            /watch(?: ?os[,\/]|\d,\d\/)([\d\.]+)/i                              // watchOS
+            ], [VERSION, [NAME, 'watchOS']], [
 
             // Google Chromecast
             /crkey\/([\d\.]+)/i                                                 // Google Chromecast
             ], [VERSION, [NAME, CHROME+'cast']], [
-            /(cros) [\w]+ ([\w\.]+\w)/i                                         // Chromium OS
-            ], [[NAME, 'Chromium OS'], VERSION],[
+            /(cros) [\w]+(?:\)| ([\w\.]+)\b)/i                                  // Chromium OS
+            ], [[NAME, CHROMIUM_OS], VERSION],[
+
+            // Smart TVs
+            /panasonic;(viera)/i,                                               // Panasonic Viera
+            /(netrange)mmh/i,                                                   // Netrange
+            /(nettv)\/(\d+\.[\w\.]+)/i,                                         // NetTV
 
             // Console
             /(nintendo|playstation) ([wids345portablevuch]+)/i,                 // Nintendo/Playstation
@@ -26007,7 +26049,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             ], [[NAME, 'Solaris'], VERSION], [
             /((?:open)?solaris)[-\/ ]?([\w\.]*)/i,                              // Solaris
             /(aix) ((\d)(?=\.|\)| )[\w\.])*/i,                                  // AIX
-            /\b(beos|os\/2|amigaos|morphos|openvms|fuchsia|hp-ux)/i,            // BeOS/OS2/AmigaOS/MorphOS/OpenVMS/Fuchsia/HP-UX
+            /\b(beos|os\/2|amigaos|morphos|openvms|fuchsia|hp-ux|serenityos)/i, // BeOS/OS2/AmigaOS/MorphOS/OpenVMS/Fuchsia/HP-UX/SerenityOS
             /(unix) ?([\w\.]*)/i                                                // UNIX
             ], [NAME, VERSION]
         ]
@@ -26028,15 +26070,22 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             return new UAParser(ua, extensions).getResult();
         }
 
-        var _ua = ua || ((typeof window !== UNDEF_TYPE && window.navigator && window.navigator.userAgent) ? window.navigator.userAgent : EMPTY);
+        var _navigator = (typeof window !== UNDEF_TYPE && window.navigator) ? window.navigator : undefined;
+        var _ua = ua || ((_navigator && _navigator.userAgent) ? _navigator.userAgent : EMPTY);
+        var _uach = (_navigator && _navigator.userAgentData) ? _navigator.userAgentData : undefined;
         var _rgxmap = extensions ? extend(regexes, extensions) : regexes;
+        var _isSelfNav = _navigator && _navigator.userAgent == _ua;
 
         this.getBrowser = function () {
             var _browser = {};
             _browser[NAME] = undefined;
             _browser[VERSION] = undefined;
             rgxMapper.call(_browser, _ua, _rgxmap.browser);
-            _browser.major = majorize(_browser.version);
+            _browser[MAJOR] = majorize(_browser[VERSION]);
+            // Brave-specific detection
+            if (_isSelfNav && _navigator && _navigator.brave && typeof _navigator.brave.isBrave == FUNC_TYPE) {
+                _browser[NAME] = 'Brave';
+            }
             return _browser;
         };
         this.getCPU = function () {
@@ -26051,6 +26100,14 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             _device[MODEL] = undefined;
             _device[TYPE] = undefined;
             rgxMapper.call(_device, _ua, _rgxmap.device);
+            if (_isSelfNav && !_device[TYPE] && _uach && _uach.mobile) {
+                _device[TYPE] = MOBILE;
+            }
+            // iPadOS-specific detection: identified as Mac, but has some iOS-only properties
+            if (_isSelfNav && _device[MODEL] == 'Macintosh' && _navigator && typeof _navigator.standalone !== UNDEF_TYPE && _navigator.maxTouchPoints && _navigator.maxTouchPoints > 2) {
+                _device[MODEL] = 'iPad';
+                _device[TYPE] = TABLET;
+            }
             return _device;
         };
         this.getEngine = function () {
@@ -26065,6 +26122,11 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             _os[NAME] = undefined;
             _os[VERSION] = undefined;
             rgxMapper.call(_os, _ua, _rgxmap.os);
+            if (_isSelfNav && !_os[NAME] && _uach && _uach.platform != 'Unknown') {
+                _os[NAME] = _uach.platform  
+                                    .replace(/chrome os/i, CHROMIUM_OS)
+                                    .replace(/macos/i, MAC_OS);           // backward compatibility
+            }
             return _os;
         };
         this.getResult = function () {
@@ -27795,7 +27857,7 @@ class PeerM2M {
         return new Promise((resolve, reject) => {
             const params = Object.assign({}, callParams);
             let options = Object.assign({}, callOptions);
-            params.participantArray = options.receivers;
+            params.participants = options.receivers;
             params.to = [participant];
             options.onicecandidate = (candidate) => this.instance.onIceCandidate(candidate, params.uUID, participant);
             options = this.instance.AddOnTrackHandler(options, params.uUID, participant);
@@ -27821,7 +27883,7 @@ class PeerM2M {
         const participant = this.instance.getPeerById(message.sessionUuid, message.from);
         console.log("Add Ice Candidate::::", message, participant);
         if (participant) {
-            participant.peerConnection.addIceCandidate(message.candidate, (error) => {
+            participant.addIceCandidate(message.candidate, (error) => {
                 if (error) {
                     EventHandler_1.default.OnAddCandidate(error, this.instance);
                     return console.error("Error adding candidate: " + error);
@@ -27837,7 +27899,7 @@ class PeerM2M {
         const participant = this.instance.getPeerById(message.sessionUuid, (_a = message.from) !== null && _a !== void 0 ? _a : message.referenceId);
         console.info("CallResponse", participant, message);
         if (message.response == "accepted" || (message.sdpType == "sdp_answer" && message.sdp)) {
-            participant.peerConnection.processAnswer((_b = message.sdpAnswer) !== null && _b !== void 0 ? _b : message.sdp, (error) => {
+            participant.processAnswer((_b = message.sdpAnswer) !== null && _b !== void 0 ? _b : message.sdp, (error) => {
                 if (error) {
                     EventHandler_1.default.SessionSDP(error, this.instance);
                     return console.error(error);
@@ -27863,9 +27925,10 @@ class PeerM2M {
         const refIDs = response.referenceIds;
         //let participantList: any=refIDs;
         refIDs.forEach((ref) => {
+            var _a, _b, _c;
             if (ref != undefined) {
                 let uUID = response.sessionUuid;
-                if (!this.instance.sessionInfo[uUID]["participants"][ref]) {
+                if (!((_c = (_b = (_a = this.instance.sessionInfo) === null || _a === void 0 ? void 0 : _a[uUID]) === null || _b === void 0 ? void 0 : _b["participants"]) === null || _c === void 0 ? void 0 : _c[ref])) {
                     this.instance.Call({
                         callType: "many_to_many",
                         isPeer: 1,
@@ -27880,6 +27943,9 @@ class PeerM2M {
                     });
                     //console.warn("Create Peer connection for", ref);
                 }
+                else {
+                    console.log("Call already connected with this peer", ref, this.instance.sessionInfo);
+                }
             }
         });
     }
@@ -27889,10 +27955,10 @@ class PeerM2M {
     OnSessionCancel(response) {
         let refID = response.referenceId;
         this.instance.emit("groupCall", { type: "PARTICIPANT_LEFT", message: "Participant left.", participant: refID });
-        var participant = this.instance.sessionInfo[response.sessionUuid]["participants"][refID];
+        const participant = this.instance.getPeerById(response.sessionUuid, refID);
         this.participantsArray.splice(this.participantsArray.indexOf(refID), 1);
         if (participant) {
-            participant.peerConnection.dispose();
+            participant.dispose();
         }
         delete this.instance.sessionInfo[response.sessionUuid]["participants"][refID];
     }

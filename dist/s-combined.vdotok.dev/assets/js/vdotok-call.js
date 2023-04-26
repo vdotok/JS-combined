@@ -205,13 +205,6 @@ class Client extends events_1.EventEmitter {
         this.Authentication(_Credentials);
         window.addEventListener('online', this.onOnline.bind(this));
         window.addEventListener('offline', this.onOffline.bind(this));
-        setInterval(() => {
-            for (var uUID in this.webRtcPeers) {
-                if (this.webRtcPeers.hasOwnProperty(uUID)) {
-                    console.log(this.webRtcPeers[uUID].peerConnection.connectionState);
-                }
-            }
-        }, 3000);
     }
     set McToken(token) {
         this.mcToken = token;
@@ -254,10 +247,12 @@ class Client extends events_1.EventEmitter {
                 clearInterval(socketCheckInterval);
                 console.log("Current call session count", this.sessionInfo.length);
                 if (this.sessionInfo && Object.keys(this.sessionInfo).length >= 1) {
-                    for (let UUID in this.sessionInfo) {
-                        console.log("Currently trying auto reconnect for  call session", UUID);
-                        let result = await this.autoReconnectCall(UUID);
-                        console.log("Reconnect result -> ", result);
+                    for (let uUID in this.sessionInfo) {
+                        for (let refId in this.sessionInfo[uUID]["participants"]) {
+                            console.log("Currently trying auto reconnect for  call session", uUID, refId);
+                            let result = await this.autoReconnectCall(uUID, null, refId);
+                            console.log("Reconnect result -> ", result);
+                        }
                     }
                 }
             }
@@ -312,8 +307,9 @@ class Client extends events_1.EventEmitter {
                     this.CallResponse(messageData);
                     console.log("Wait for Ice received and try to reconnect!");
                     this.reconnectCheckInterval[messageData.sessionUuid] = setTimeout(() => {
+                        var _a;
                         console.log("Ice not received, reconnecting...!");
-                        let result = this.autoReconnectCall(messageData.sessionUuid);
+                        let result = this.autoReconnectCall(messageData.sessionUuid, null, (_a = messageData.from) !== null && _a !== void 0 ? _a : messageData.referenceId);
                         console.log(result);
                     }, 1600);
                     break;
@@ -366,33 +362,32 @@ class Client extends events_1.EventEmitter {
                         clearTimeout(this.reconnectCheckInterval[messageData.sessionUuid]);
                     }
                     let participant = false;
-                    if (this.sessionInfo[messageData.sessionUuid]) {
-                        participant = this.sessionInfo[messageData.sessionUuid];
+                    let sessionInfo = this.sessionInfo[messageData.sessionUuid];
+                    if (sessionInfo) {
+                        participant = this.getPeerById(messageData.sessionUuid);
                         if (this.isManyToMany && Object.keys(this.manyToMany).length) {
-                            if (this.manyToMany.isPeerCall) {
-                                participant = participant["participants"][messageData.from];
-                            }
-                            else {
+                            if (!this.manyToMany.isPeerCall) {
                                 this.manyToMany.AddCandidate(messageData);
                                 return;
                             }
                         }
                     }
-                    if (participant && participant.isInitiator && participant.callType == "one_to_one") {
+                    if (participant && sessionInfo.isInitiator && sessionInfo.callType == "one_to_one") {
                         this.AddCandidate(messageData);
                     }
                     else {
-                        if (participant && participant.peerConnection && participant.peerConnection.peerConnection.currentRemoteDescription) {
+                        if (participant === null || participant === void 0 ? void 0 : participant.peerConnection.currentRemoteDescription) {
                             this.AddCandidate(messageData);
                         }
                         else {
-                            if (!participant.receivedRemoteCandidates) {
+                            if (participant && !participant.receivedRemoteCandidates) {
                                 participant.receivedRemoteCandidates = [];
                             }
                             participant.receivedRemoteCandidates.push(messageData);
                             if (!participant.isRemoteSDPAvailable) {
                                 participant.isRemoteSDPAvailable = setInterval(() => {
-                                    if (participant && participant.peerConnection.peerConnection.currentRemoteDescription) {
+                                    var _a;
+                                    if ((_a = participant === null || participant === void 0 ? void 0 : participant.peerConnection) === null || _a === void 0 ? void 0 : _a.currentRemoteDescription) {
                                         clearInterval(participant.isRemoteSDPAvailable);
                                         participant.isRemoteSDPAvailable = null;
                                         console.log("Processing stored ice candidates!");
@@ -510,31 +505,28 @@ class Client extends events_1.EventEmitter {
                     break;
                 /////////////////////////////////////////////////
                 case "to_receive_stream":
-                    if (messageData.responseCode === 200) {
-                        console.log("to_receive_stream");
-                        if (messageData.sdp_type == "sdpOffer") {
-                            console.log("i have to prepare answer");
-                            let params = {};
-                            let uUID = messageData.sessionUuid;
-                            params.isPeer = 1;
-                            params.sdp = messageData.sdp;
-                            params.sessionUuid = params.uUID = uUID;
-                            params.audio = this.audioStatus[uUID] ? this.audioStatus[uUID] : 1;
-                            params.video = this.videoStatus[uUID] ? this.videoStatus[uUID] : 1;
-                            params.localVideo = this.localVideo;
-                            params.requestType = "to_receive_stream";
-                            params.callType = "many_to_many";
-                            this.AcceptCall(params).then((results) => {
-                                console.log("Reinvite Accept Response: ", results);
-                            });
-                        }
-                        else {
-                            console.log("i have to set remote description");
-                            this.manyToMany.CallResponse(messageData);
-                        }
+                    console.log("to_receive_stream");
+                    if (messageData.sdpType == "sdp_offer") {
+                        console.log("i have to prepare answer");
+                        let params = {};
+                        let uUID = messageData.sessionUuid;
+                        params.isPeer = 1;
+                        params.sdp = messageData.sdp;
+                        params.sessionUuid = params.uUID = uUID;
+                        params.audio = this.audioStatus[uUID] ? this.audioStatus[uUID] : 1;
+                        params.video = this.videoStatus[uUID] ? this.videoStatus[uUID] : 1;
+                        params.localVideo = this.localVideo;
+                        params.requestType = "to_receive_stream";
+                        params.callType = "many_to_many";
+                        params.from = this.currentUser;
+                        params.to = messageData.referenceId;
+                        this.AcceptCall(params).then((results) => {
+                            console.log("Reinvite Accept Response: ", results);
+                        });
                     }
                     else {
-                        console.error("Error on unhandled response", messageData);
+                        console.log("i have to set remote description");
+                        this.manyToMany.CallResponse(messageData);
                     }
                     break;
                 default:
@@ -603,9 +595,10 @@ class Client extends events_1.EventEmitter {
         let socket = this.ws;
         return socket.readyState !== WebSocket.CLOSED && socket.readyState !== WebSocket.CLOSING;
     }
-    autoReconnectCall(uUID, params = null) {
+    autoReconnectCall(uUID, params = null, refId = null) {
         var _a, _b;
-        if (this.webRtcPeers[uUID] && this.webRtcPeers[uUID].peerConnection && this.webRtcPeers[uUID].peerConnection.connectionState === "connected") {
+        let webRTCPeer = this.getPeerById(uUID, refId);
+        if ((webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection) && webRTCPeer.peerConnection.connectionState === "connected") {
             return { message: "RTC Peer got auto connected no need for manual reconnect!", status: true };
         }
         params = params || (this.sessionInfo[uUID] && this.sessionInfo[uUID].currentCallParams ? this.sessionInfo[uUID].currentCallParams : null);
@@ -615,8 +608,8 @@ class Client extends events_1.EventEmitter {
             }
             params.video = this.videoStatus[uUID] ? 1 : (params.video ? 1 : 0);
             params.audio = this.audioStatus[uUID] ? 1 : (params.audio ? 1 : 0);
-            params.re_invite = 1;
-            params.ref_id = this.currentUser || params.ref_id;
+            params.reInvite = 1;
+            params.refId = this.currentUser || params.refId;
             params.sessionUuid = uUID;
             params.isPeer = this.sessionInfo[uUID] ? this.sessionInfo[uUID].isPeer : (params.isPeer ? 1 : 0);
             params.callType = this.sessionInfo[uUID] ? this.sessionInfo[uUID].callType : ((_a = params.callType) !== null && _a !== void 0 ? _a : "one_to_one");
@@ -627,8 +620,8 @@ class Client extends events_1.EventEmitter {
             else if (["audio", "video", "one_to_one"].includes(params.callType)) {
                 if (params.isPeer) {
                     console.log("Peer to Peer call");
-                    if (this.webRtcPeers[uUID]) {
-                        this.webRtcPeers[uUID].generateOffer((error, offerSdp) => {
+                    if (webRTCPeer) {
+                        webRTCPeer.generateOffer((error, offerSdp) => {
                             this.onOfferCall(error, offerSdp, this.mediaType, uUID, params);
                             console.log("Call autoConnected successfully", uUID);
                         }, { iceRestart: true });
@@ -656,11 +649,13 @@ class Client extends events_1.EventEmitter {
         }
     }
     PeerToPeerReInvite(messageData) {
-        if (messageData.sdpType === "sdp_anwser") {
+        var _a, _b;
+        let webRTCPeer = this.getPeerById(messageData.sessionUuid, (_a = messageData.from) !== null && _a !== void 0 ? _a : messageData.referenceId);
+        if (messageData.sdpType === "sdp_answer") {
             try {
-                if (this.webRtcPeers[messageData.sessionUuid]) {
+                if (webRTCPeer) {
                     if (messageData.sdp) {
-                        this.webRtcPeers[messageData.sessionUuid].processAnswer(messageData.sdp, (error) => {
+                        webRTCPeer.processAnswer(messageData.sdp, (error) => {
                             if (error) {
                                 EventHandler_1.default.SessionSDP(error, this);
                                 return console.error(error);
@@ -676,14 +671,14 @@ class Client extends events_1.EventEmitter {
             return;
         }
         let uUID = messageData.sessionUuid;
-        let sdp = messageData.sdp ? messageData.sdp : messageData.sdpOffer;
+        let sdp = (_b = messageData.sdp) !== null && _b !== void 0 ? _b : messageData.sdpOffer;
         if (this.sessionInfo && this.sessionInfo[uUID] && this.sessionInfo[uUID].lastReinviteTime && messageData.timestamp < this.sessionInfo[uUID].lastReinviteTime) {
             console.log("Conflict! No need to process Answer, As this peer just send a latest reInvite and answer will be processed on other peer side");
             return;
         }
         if (messageData.callType === "one_to_one") {
-            if (this.webRtcPeers[uUID] && this.sessionInfo[uUID] && !this.sessionInfo[uUID].isInitiator) {
-                this.webRtcPeers[uUID].processOffer(sdp, (error, answerSdp) => {
+            if (webRTCPeer && this.sessionInfo[uUID] && !this.sessionInfo[uUID].isInitiator) {
+                webRTCPeer.processOffer(sdp, (error, answerSdp) => {
                     if (error) {
                         EventHandler_1.default.SessionSDP(error, this);
                         return console.error(error);
@@ -735,13 +730,23 @@ class Client extends events_1.EventEmitter {
             if (options.localVideo) {
                 this.localVideos[params.uUID] = options.localVideo;
             }
-            this.webRtcPeers[params.uUID] = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerSendrecv(options, (error) => {
+            let WebRTCPeer = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerSendrecv(options, (error) => {
+                var _a;
                 if (error) {
                     rejects(error);
                     this.onErrorHandler();
                     return console.error(error);
                 }
-                this.webRtcPeers[params.uUID].generateOffer((error, offerSdp) => {
+                if (!((_a = this.sessionInfo[params.uUID]) === null || _a === void 0 ? void 0 : _a.participants)) {
+                    this.sessionInfo[params.uUID]["participants"] = {};
+                }
+                if (params.callType === "many_to_many" && params.isPeer) {
+                    this.sessionInfo[params.uUID]["participants"][this.getFirstValue(params.to)] = { peerConnection: WebRTCPeer };
+                }
+                else { //O2O,O2M
+                    this.sessionInfo[params.uUID]["participants"][this.currentUser] = { peerConnection: WebRTCPeer };
+                }
+                WebRTCPeer.generateOffer((error, offerSdp) => {
                     if (params.callType == "one_to_many") {
                         this.onOfferOneToManyCall(error, offerSdp, params.uUID, params);
                     }
@@ -894,8 +899,9 @@ class Client extends events_1.EventEmitter {
             this.manyToMany.AddCandidate(message);
             return;
         }
-        if (this.webRtcPeers[message.sessionUuid]) {
-            this.webRtcPeers[message.sessionUuid].addIceCandidate(message.candidate, (error) => {
+        let webRTCPeer = this.getPeerById(message.sessionUuid);
+        if (webRTCPeer) {
+            webRTCPeer.addIceCandidate(message.candidate, (error) => {
                 if (error) {
                     EventHandler_1.default.OnAddCandidate(error, this);
                     return console.error('Error adding candidate: ' + error);
@@ -916,6 +922,7 @@ class Client extends events_1.EventEmitter {
         }
     }
     CallResponse(response) {
+        var _a, _b;
         if (this.rtcPears) {
             let answer = new RTCSessionDescription({
                 type: 'answer',
@@ -929,9 +936,10 @@ class Client extends events_1.EventEmitter {
             return;
         }
         EventHandler_1.default.OnCallResponse(response, this);
-        console.info('CallResponse', this.webRtcPeers[response.sessionUuid], response);
+        let webRTCPeer = this.getPeerById(response.sessionUuid, (_a = response.from) !== null && _a !== void 0 ? _a : response.referenceId);
+        console.info('CallResponse', webRTCPeer, response);
         if (response.response == 'accepted') {
-            this.webRtcPeers[response.sessionUuid].processAnswer(response.sdpAnswer, (error) => {
+            webRTCPeer.processAnswer((_b = response.sdpAnswer) !== null && _b !== void 0 ? _b : response.sdp, (error) => {
                 if (error) {
                     EventHandler_1.default.SessionSDP(error, this);
                     return console.error(error);
@@ -940,6 +948,7 @@ class Client extends events_1.EventEmitter {
         }
     }
     SessionStart(message) {
+        var _a;
         if (this.rtcPears) {
             let answer = new RTCSessionDescription({
                 type: 'answer',
@@ -948,14 +957,15 @@ class Client extends events_1.EventEmitter {
             this.rtcPears.setRemoteDescription(answer);
             return;
         }
-        if (this.isManyToMany && Object.keys(this.manyToMany).length) {
+        if (this.isManyToMany && Object.keys(this.manyToMany).length && !this.manyToMany.isPeerCall) {
             this.manyToMany.SessionStart(message);
             return;
         }
         EventHandler_1.default.SessionStart(message, this);
-        if (this.webRtcPeers[message.sessionUuid]) {
-            if (message.sdpAnswer) {
-                this.webRtcPeers[message.sessionUuid].processAnswer(message.sdpAnswer, (error) => {
+        let webRTCPeer = this.getPeerById(message.sessionUuid);
+        if (webRTCPeer) {
+            if (message.sdpAnswer || message.sdp) {
+                webRTCPeer.processAnswer((_a = message.sdpAnswer) !== null && _a !== void 0 ? _a : message.sdp, (error) => {
                     if (error) {
                         EventHandler_1.default.SessionSDP(error, this);
                         return console.error(error);
@@ -980,11 +990,21 @@ class Client extends events_1.EventEmitter {
         }
     }
     async AcceptCall(params) {
+        if (!params.uUID) {
+            params.uUID = params.sessionUuid;
+        }
         params.callType = this.sessionInfo[params.uUID] && this.sessionInfo[params.uUID].callType ? this.sessionInfo[params.uUID].callType : "one_to_one";
         params.isInitiator = 0;
-        params.isPeer = params.hasOwnProperty('isPeer') ? params.isPeer : 1;
+        if (!params.hasOwnProperty('isPeer')) {
+            if (this.sessionInfo[params.uUID].hasOwnProperty('isPeer')) {
+                params.isPeer = this.sessionInfo[params.uUID].isPeer;
+            }
+            else {
+                params.isPeer = 1;
+            }
+        }
         return new Promise(async (resolve, rejects) => {
-            var _a, _b;
+            var _a, _b, _c;
             this.localVideo = params.localVideo;
             let from = this.currentFromUser;
             let uUID = params.uUID = params.sessionUuid;
@@ -992,7 +1012,7 @@ class Client extends events_1.EventEmitter {
             this.UUIDSessionTypes[uUID] = (_a = this.UUIDSessionTypes[uUID]) !== null && _a !== void 0 ? _a : "one_to_one";
             this.UUIDSessionMediaTypes[from] = (_b = this.UUIDSessionMediaTypes[from]) !== null && _b !== void 0 ? _b : (!params.video ? 'audio' : 'video');
             let options = {};
-            params.to = [from];
+            params.to = (_c = params.to) !== null && _c !== void 0 ? _c : [from];
             try {
                 options = await this.createOptions(params);
                 if (options && !options.status) {
@@ -1008,18 +1028,21 @@ class Client extends events_1.EventEmitter {
             }
             if (uUID) {
                 let WebRTCPeer = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerSendrecv(options, (error) => {
+                    var _a;
                     if (error) {
                         this.onErrorHandler();
                         rejects(error);
                     }
                     let isPeer = params.isPeer || (this.sessionInfo[uUID] && this.sessionInfo[uUID].incomingCallData ? this.sessionInfo[uUID].incomingCallData.isPeer : 0);
                     let sdp = params.sdp || (this.sessionInfo[uUID] && this.sessionInfo[uUID].incomingCallData ? this.sessionInfo[uUID].incomingCallData.callerSdp : "");
-                    if (params.callType === "many_to_many" && params.isPeer) {
+                    if (!((_a = this.sessionInfo[uUID]) === null || _a === void 0 ? void 0 : _a.participants)) {
                         this.sessionInfo[uUID]["participants"] = {};
+                    }
+                    if (params.callType === "many_to_many" && params.isPeer) {
                         this.sessionInfo[uUID]["participants"][from] = { peerConnection: WebRTCPeer };
                     }
-                    else {
-                        this.webRtcPeers[uUID] = WebRTCPeer;
+                    else { //O2O
+                        this.sessionInfo[uUID]["participants"][this.currentUser] = { peerConnection: WebRTCPeer };
                     }
                     if (isPeer) {
                         //This is peer to peer call
@@ -1113,11 +1136,17 @@ class Client extends events_1.EventEmitter {
         if (isPeer) {
             response.isPeer = 1;
         }
-        if (params.isReInvite) {
+        if (params.requestType === "to_receive_stream" || params.isReInvite) {
+            if (params.isReInvite) {
+                response.requestType = 'p2p_reInvite';
+            }
+            else {
+                response.to = params.to;
+                response.from = params.from;
+            }
             delete response.sdpOffer;
             response.sdp = answerSdp;
             response.sdpType = 'sdp_answer';
-            response.requestType = 'p2p_reInvite';
         }
         console.log("===OnOffering Answer", response);
         this.SendPacket(response);
@@ -1174,7 +1203,7 @@ class Client extends events_1.EventEmitter {
         this.isEmptyAudioStarted[uUID] = !this.audioStatus[uUID];
         params.sessionUuid = params.uUID = uUID;
         this.sessionInfo[uUID].mediaType = this.mediaType = params.video ? "video" : "audio";
-        this.to = params.to === "" || Array.isArray(params.to) ? params.to : [params.to];
+        this.to = (params.to === "" || Array.isArray(params.to)) ? params.to : [params.to];
         params.assUUID = (params.hasOwnProperty("associatedSessionUuid")) ? params["associatedSessionUuid"] : "";
         params.isPublic = (params.hasOwnProperty("broadcastType")) ? params["broadcastType"] : 0;
         if (!params.data) {
@@ -1205,12 +1234,12 @@ class Client extends events_1.EventEmitter {
         (0, CommonHelper_1.SetPlaysInline)(params.localVideo);
         let options = {
             mediaConstraints: constraints,
-            onicecandidate: (candidate) => this.onIceCandidate(candidate, params.uUID),
+            onicecandidate: (candidate) => this.onIceCandidate(candidate, params.uUID, this.getFirstValue(params.to)),
             onerror: this.onError,
             status: true
         };
-        if (params.to.length <= 1) { //For multiple participants (peer M2M) we will hndle this in that class
-            options = this.AddOnTrackHandler(options, uUID, params.to[0]);
+        if (this.getFirstValue(params.to)) { //For multiple participants (peer M2M) we will hndle this in that class
+            options = this.AddOnTrackHandler(options, uUID, this.getFirstValue(params.to));
         }
         if (!this.streamHelper) {
             this.streamHelper = new StreamHelper_1.default(this);
@@ -1283,6 +1312,16 @@ class Client extends events_1.EventEmitter {
             }
         }
         return options;
+    }
+    getFirstValue(element, checkIsArray = false) {
+        let final = element;
+        if (Array.isArray(element)) {
+            final = element[0];
+            if (checkIsArray) {
+                return true;
+            }
+        }
+        return final;
     }
     AddOnTrackHandler(options, uUID, refId) {
         options.ontrack = (event) => {
@@ -1480,9 +1519,9 @@ class Client extends events_1.EventEmitter {
         ///////for public url/group
         callRequest.custom_field("broadcastType", params.isPublic);
         callRequest.custom_field("associatedSessionUuid", params.assUUID);
-        if (params.re_invite && params.ref_id) {
+        if (params.reInvite && params.refId) {
             callRequest.requestType = 're_invite';
-            callRequest.referenceId = params.ref_id;
+            callRequest.referenceId = params.refId;
         }
         else {
             callRequest.requestType = 'session_invite';
@@ -1497,26 +1536,28 @@ class Client extends events_1.EventEmitter {
         ///////////////////////////////////////////
         ///////////////////////////////////////////
         callRequest.SendCallRequest(this.ws);
-        if (this.webRtcPeers && this.webRtcPeers[uUID] && this.webRtcPeers[uUID].peerConnection) {
+        let webRTCPeer = this.getPeerById(uUID);
+        if (webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection) {
             //@ts-ignore
-            this.webRtcPeers[uUID].peerConnection.addEventListener("iceconnectionstatechange", this.onIceError.bind(this, uUID), false);
+            webRTCPeer.peerConnection.addEventListener("iceconnectionstatechange", this.onIceError.bind(this, uUID, this.currentUser), false);
         }
         this.sendStateInformation(this.videoStatus[uUID], this.audioStatus[uUID], uUID, {
             fromVideo: true,
-            reInvite: params.re_invite
+            reInvite: params.reInvite
         });
     }
-    onIceError(uUID, ev) {
+    onIceError(uUID, ev, refID) {
+        let webRTCPeer = this.getPeerById(uUID, refID);
         let states = ['closed', 'failed', 'disconnected'];
-        if (this.webRtcPeers && this.webRtcPeers[uUID] && this.webRtcPeers[uUID].peerConnection && this.webRtcPeers[uUID].peerConnection.iceConnectionState && states.includes(this.webRtcPeers[uUID].peerConnection.iceConnectionState)) { //it will come for all ice
+        if ((webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection) && webRTCPeer.peerConnection.iceConnectionState && states.includes(webRTCPeer.peerConnection.iceConnectionState)) { //it will come for all ice
             if (this.reInviteTimeout[uUID]) {
                 clearTimeout(this.reInviteTimeout[uUID]);
             }
             console.log("SDK iceconnectionstatechange", ev);
             this.reInviteTimeout[uUID] = setTimeout(() => {
-                console.log("Re_inviting because ice state = ", this.webRtcPeers[uUID].peerConnection.iceConnectionState);
+                console.log("Re_inviting because ice state = ", webRTCPeer.peerConnection.iceConnectionState);
                 try {
-                    let result = this.autoReconnectCall(uUID);
+                    let result = this.autoReconnectCall(uUID, null, refID);
                     console.log(result);
                 }
                 catch (e) {
@@ -1571,13 +1612,17 @@ class Client extends events_1.EventEmitter {
         if (callRequest.callType === "many_to_many" && params.participantArray && params.participantArray.length) {
             callRequest.participantArray = params.participantArray;
         }
-        if (params.re_invite && params.ref_id) {
-            callRequest.referenceId = params.ref_id;
+        if (params.reInvite || params.requestType == "to_receive_stream") {
+            callRequest.sdp = offerSdp;
+            callRequest.sdpType = "sdp_offer";
+            callRequest.sdpOffer = "";
+            delete callRequest.sdpOffer;
+        }
+        if (params.reInvite && params.refId) {
+            callRequest.referenceId = params.refId;
             callRequest.requestType = 're_invite';
             if (callRequest.isPeer) {
                 callRequest.requestType = 'p2p_reInvite';
-                callRequest.sdp = offerSdp;
-                callRequest.sdpType = "sdp_offer";
                 this.sessionInfo[uUID].lastReinviteTime = callRequest.timestamp = new Date().getTime().toString();
             }
             callRequest.custom_field("fromUser", this.currentUser);
@@ -1600,12 +1645,12 @@ class Client extends events_1.EventEmitter {
         this.UUIDSessionTypes[uUID] = callRequest.callType;
         console.log(' OnOfferCall :: :: ::', mediaType);
         this.sendStateInformation(this.videoStatus[uUID], this.audioStatus[uUID], uUID, {});
-        if (params.re_invite) {
+        if (params.reInvite) {
             EventHandler_1.default.SetCallerStatus({
                 videoInformation: this.videoStatus[uUID],
                 audioInformation: this.audioStatus[uUID],
                 sessionUuid: uUID,
-                referenceId: params.ref_id,
+                referenceId: params.refId,
                 data: {}
             }, this);
         }
@@ -1614,22 +1659,22 @@ class Client extends events_1.EventEmitter {
         if (!from) {
             from = this.currentFromUser;
         }
-        if (this.webRtcPeers) {
-            for (var uUID in this.webRtcPeers) {
+        if (this.sessionInfo) {
+            for (var uUID in this.sessionInfo) {
                 if (!onlyUUID || (onlyUUID && onlyUUID == uUID)) //only a single session get deleted or all sessions
                  {
-                    if (this.webRtcPeers.hasOwnProperty(uUID)) {
-                        this.webRtcPeers[uUID].dispose();
+                    let webRTCPeer = this.getPeerById(uUID);
+                    if (webRTCPeer) {
+                        webRTCPeer.dispose();
                         if (status) {
                             this.sendDisposePacket(uUID);
                         }
-                        if (this.webRtcPeers[uUID] && this.webRtcPeers[uUID].peerConnection) {
-                            this.webRtcPeers[uUID].peerConnection.removeEventListener("iceconnectionstatechange", this.onIceError, false);
+                        if (webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection) {
+                            webRTCPeer.peerConnection.removeEventListener("iceconnectionstatechange", this.onIceError, false);
                         }
                         if (this.sessionInfo[uUID].callTimeoutInterval) {
                             clearTimeout(this.sessionInfo[uUID].callTimeoutInterval);
                         }
-                        delete this.webRtcPeers[uUID];
                         delete this.sessionInfo[uUID];
                     }
                 }
@@ -1663,14 +1708,17 @@ class Client extends events_1.EventEmitter {
     onError(error) {
         EventHandler_1.default.OnRTCPeer(error, this);
     }
-    onIceCandidate(candidate, uUID) {
+    onIceCandidate(candidate, uUID, refId) {
         console.log("Local candidate" + JSON.stringify(candidate));
+        if (!refId) {
+            refId = this.currentUser;
+        }
         var message = {
             id: 'ice_candidate',
             requestType: 'ice_candidate',
             type: "request",
             candidate: candidate,
-            referenceId: this.isManyToMany ? this.manyToMany.currentParticipantUser : this.currentUser,
+            referenceId: refId,
             sessionUuid: uUID
         };
         console.log("Local candidate Msg", message);
@@ -1771,8 +1819,25 @@ class Client extends events_1.EventEmitter {
         }
     }
     async replaceStreamTracks(stream, uuid, type = 'video') {
+        var _a;
+        if (this.isManyToMany) {
+            let replaced = false;
+            for (let refId in (_a = this.sessionInfo[uuid]) === null || _a === void 0 ? void 0 : _a.participants) {
+                replaced = await this.replaceTracksInternal(uuid, stream, type, refId);
+                if (!replaced) {
+                    console.error("Stream tracks not replaced for", uuid, stream, type, refId);
+                }
+            }
+            return replaced;
+        }
+        else {
+            return this.replaceTracksInternal(uuid, stream, type);
+        }
+    }
+    async replaceTracksInternal(uuid, stream, type, refId = null) {
         let replaced = false;
-        let senders = this.webRtcPeers[uuid].peerConnection.getSenders();
+        let webRTCPeer = this.getPeerById(uuid, refId);
+        let senders = webRTCPeer.peerConnection.getSenders();
         for (const sender of senders) {
             if (sender && sender.track && sender.track.kind === type) {
                 let t = (stream.getTracks().filter((track) => track.kind === type))[0];
@@ -1845,7 +1910,8 @@ class Client extends events_1.EventEmitter {
      * SetCameraOn
      */
     async SetCameraOn(uUID, facingMode = 'user', extraData = null) {
-        if (!(this.webRtcPeers[uUID] && this.webRtcPeers[uUID].peerConnection)) {
+        let webRTCPeer = this.getPeerById(uUID);
+        if (!(webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection)) {
             return { status: false, message: "Peer Connection not found!", tryNewCall: true };
         }
         let session = (this.isManyToMany) ? this.callSession : this.UUIDSessions[this.currentFromUser];
@@ -2035,18 +2101,6 @@ class Client extends events_1.EventEmitter {
     sendPing() {
         try {
             let pingCount = 0;
-            /*for (var uUID in this.webRtcPeers) {
-              if(this.pingSessionStopped[uUID])
-              {
-                console.log("SDK not sending Ping session already stopped from server with 400 pong for: ", uUID);
-              }
-              else
-              {
-                pingCount++;
-                this.sendStateRPC({}, uUID, 0, 'session_ping')
-                console.log("SDK Ping sent for: ", uUID);
-              }
-            }*/
             if (!pingCount || true) {
                 this.sendStateRPC({}, -1, 0, 'ping');
                 console.log("SDK Ping sent!");
@@ -2118,8 +2172,26 @@ class Client extends events_1.EventEmitter {
         if (this.ws) {
             this.ws.close();
         }
-        this.webRtcPeers = [];
         this.sessionInfo = [];
+    }
+    getPeerById(uUID, refId = null) {
+        var _a, _b, _c, _d, _e, _f, _g;
+        if (!refId || this.sessionInfo[uUID].callType != "many_to_many") {
+            refId = this.currentUser;
+        }
+        let webRTCPeer = (_c = (_b = (_a = this.sessionInfo[uUID]) === null || _a === void 0 ? void 0 : _a.participants) === null || _b === void 0 ? void 0 : _b[refId]) === null || _c === void 0 ? void 0 : _c.peerConnection;
+        //if there is only one peer and not found above then we are auto piking it.
+        if (!webRTCPeer && ((_d = this.sessionInfo[uUID]) === null || _d === void 0 ? void 0 : _d.participants)) {
+            let all = Object.keys((_e = this.sessionInfo[uUID]) === null || _e === void 0 ? void 0 : _e.participants);
+            if (all.length == 1) {
+                webRTCPeer = (_g = (_f = this.sessionInfo[uUID]) === null || _f === void 0 ? void 0 : _f.participants) === null || _g === void 0 ? void 0 : _g[all[0]];
+            }
+        }
+        if (!webRTCPeer) {
+            console.error("Unable to find peer connection object", uUID, refId, this.sessionInfo);
+            console.trace();
+        }
+        return webRTCPeer;
     }
     getDeviceId() {
         let machineId = localStorage.getItem('VDOTOKDeviceId');
@@ -2933,7 +3005,8 @@ class EventHandlerService {
         }
     }
     updateCallState(instance, uuid, state) {
-        if (instance.sessionInfo[uuid]) {
+        var _a;
+        if ((_a = instance === null || instance === void 0 ? void 0 : instance.sessionInfo) === null || _a === void 0 ? void 0 : _a[uuid]) {
             instance.sessionInfo[uuid].call_state = state;
         }
     }
@@ -3541,6 +3614,8 @@ class SingleStreamHelper {
         this.audioContextDest = null;
         this.createdFromContext = 0;
         this.emptyStreamInterval = null;
+        this.currentStreamType = "camera";
+        this.currentFaceMode = "user";
         this.publicIps = [];
         this.checkOnlineStatus = async () => {
             try {
@@ -3586,16 +3661,34 @@ class SingleStreamHelper {
         return new Promise((resolve) => setTimeout(resolve, time));
     }
     async getStream(audio = true, video = true, type = "camera", facingMode = "user") {
-        if (video && type == "screen") {
-            this.screenSharingMobile = new ScreenSharingMobile_1.default(this.emitter);
-            this.videoStream = await this.screenSharingMobile.getScreenShareStream(false);
-        }
         const options = { audio: false, video: false };
         if (audio) {
             options.audio = {
                 echoCancellation: true,
                 noiseSuppression: true,
             };
+        }
+        if (video && this.videoStream && this.videoStream.active && this.currentStreamType === type && type === "camera") {
+            if ((audio && this.createdFromContext) || (audio && !this.audioStream.active)) {
+                this.audioStream = await navigator.mediaDevices.getUserMedia({ audio: options.audio });
+            }
+            return {
+                audio: this.audioStream,
+                video: this.videoStream,
+                combine: this.getCombine()
+            };
+        }
+        if (audio && this.audioStream && this.audioStream.active && type === "audio") {
+            return {
+                audio: this.audioStream,
+                video: this.videoStream,
+                combine: this.getCombine()
+            };
+        }
+        if (video && type == "screen") {
+            this.screenSharingMobile = new ScreenSharingMobile_1.default(this.emitter);
+            this.videoStream = await this.screenSharingMobile.getScreenShareStream(false);
+            this.currentStreamType = type;
         }
         if (video && type == "camera") {
             if (this.aStream) {
@@ -3620,10 +3713,16 @@ class SingleStreamHelper {
                 else {
                     options.video.facingMode = { exact: facingMode };
                 }
+                this.currentFaceMode = facingMode;
             }
             else if (this.detectMob()) {
                 options.video.facingMode = { exact: "user" };
+                this.currentFaceMode = "user";
             }
+            else {
+                this.currentFaceMode = "user";
+            }
+            this.currentStreamType = type;
         }
         this.aStream = new MediaStream();
         if (options.audio || options.video) {
@@ -3635,6 +3734,7 @@ class SingleStreamHelper {
             }
         }
         if (options.audio && this.aStream) {
+            this.createdFromContext = 0;
             this.audioStream = new MediaStream(this.aStream.getAudioTracks());
         }
         else {
@@ -3649,6 +3749,17 @@ class SingleStreamHelper {
                 this.black({ width: 640, height: 480 }),
             ]);
         }
+        const finalResults = {
+            video: this.videoStream,
+            audio: this.audioStream,
+            combine: this.getCombine(),
+        };
+        if (this.screenSharingMobile && video && type == "screen") {
+            finalResults.nativeScreenShare = this.screenSharingMobile.nativeScreenShare;
+        }
+        return finalResults;
+    }
+    getCombine() {
         const combine = [];
         if (this.videoStream) {
             /*try {
@@ -3669,15 +3780,7 @@ class SingleStreamHelper {
         if (this.audioStream) {
             combine.push(this.audioStream.getAudioTracks()[0]);
         }
-        const finalResults = {
-            video: this.videoStream,
-            audio: this.audioStream,
-            combine: new MediaStream(combine),
-        };
-        if (this.screenSharingMobile && video && type == "screen") {
-            finalResults.nativeScreenShare = this.screenSharingMobile.nativeScreenShare;
-        }
-        return finalResults;
+        return new MediaStream(combine);
     }
     detectMob() {
         const toMatch = [
@@ -25162,7 +25265,7 @@ exports.WebRtcPeerHelper = WebRtcPeerHelper;
 /***/ (function(module, exports, __webpack_require__) {
 
 var __WEBPACK_AMD_DEFINE_RESULT__;/////////////////////////////////////////////////////////////////////////////////
-/* UAParser.js v1.0.33
+/* UAParser.js v1.0.35
    Copyright © 2012-2021 Faisal Salman <f@faisalman.com>
    MIT License *//*
    Detect Browser, Engine, OS, CPU, and Device type/model from User-Agent data.
@@ -25180,7 +25283,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
     /////////////
 
 
-    var LIBVERSION  = '1.0.33',
+    var LIBVERSION  = '1.0.35',
         EMPTY       = '',
         UNKNOWN     = '?',
         FUNC_TYPE   = 'function',
@@ -25219,9 +25322,12 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
         SAMSUNG = 'Samsung',
         SHARP   = 'Sharp',
         SONY    = 'Sony',
+        VIERA   = 'Viera',
         XIAOMI  = 'Xiaomi',
         ZEBRA   = 'Zebra',
-        FACEBOOK   = 'Facebook';
+        FACEBOOK    = 'Facebook',
+        CHROMIUM_OS = 'Chromium OS',
+        MAC_OS  = 'Mac OS';
 
     ///////////
     // Helper
@@ -25279,6 +25385,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
                 // try matching uastring with regexes
                 while (j < regex.length && !matches) {
 
+                    if (!regex[j]) { break; }
                     matches = regex[j++].exec(ua);
 
                     if (!!matches) {
@@ -25395,8 +25502,9 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             /(?:ms|\()(ie) ([\w\.]+)/i,                                         // Internet Explorer
 
             // Webkit/KHTML based                                               // Flock/RockMelt/Midori/Epiphany/Silk/Skyfire/Bolt/Iron/Iridium/PhantomJS/Bowser/QupZilla/Falkon
-            /(flock|rockmelt|midori|epiphany|silk|skyfire|ovibrowser|bolt|iron|vivaldi|iridium|phantomjs|bowser|quark|qupzilla|falkon|rekonq|puffin|brave|whale|qqbrowserlite|qq|duckduckgo)\/([-\w\.]+)/i,
+            /(flock|rockmelt|midori|epiphany|silk|skyfire|bolt|iron|vivaldi|iridium|phantomjs|bowser|quark|qupzilla|falkon|rekonq|puffin|brave|whale(?!.+naver)|qqbrowserlite|qq|duckduckgo)\/([-\w\.]+)/i,
                                                                                 // Rekonq/Puffin/Brave/Whale/QQBrowserLite/QQ, aka ShouQ
+            /(heytap|ovi)browser\/([\d\.]+)/i,                                  // Heytap/Ovi
             /(weibo)__([\d\.]+)/i                                               // Weibo
             ], [NAME, VERSION], [
             /(?:\buc? ?browser|(?:juc.+)ucweb)[\/ ]?([\w\.]+)/i                 // UCBrowser
@@ -25410,7 +25518,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             ], [VERSION, [NAME, 'Konqueror']], [
             /trident.+rv[: ]([\w\.]{1,9})\b.+like gecko/i                       // IE11
             ], [VERSION, [NAME, 'IE']], [
-            /yabrowser\/([\w\.]+)/i                                             // Yandex
+            /ya(?:search)?browser\/([\w\.]+)/i                                  // Yandex
             ], [VERSION, [NAME, 'Yandex']], [
             /(avast|avg)\/([\w\.]+)/i                                           // Avast/AVG Secure Browser
             ], [[NAME, /(.+)/, '$1 Secure '+BROWSER], VERSION], [
@@ -25446,12 +25554,16 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             // WebView
             /((?:fban\/fbios|fb_iab\/fb4a)(?!.+fbav)|;fbav\/([\w\.]+);)/i       // Facebook App for iOS & Android
             ], [[NAME, FACEBOOK], VERSION], [
+            /(kakao(?:talk|story))[\/ ]([\w\.]+)/i,                             // Kakao App
+            /(naver)\(.*?(\d+\.[\w\.]+).*\)/i,                                  // Naver InApp
             /safari (line)\/([\w\.]+)/i,                                        // Line App for iOS
             /\b(line)\/([\w\.]+)\/iab/i,                                        // Line App for Android
             /(chromium|instagram)[\/ ]([-\w\.]+)/i                              // Chromium/Instagram
             ], [NAME, VERSION], [
             /\bgsa\/([\w\.]+) .*safari\//i                                      // Google Search Appliance on iOS
             ], [VERSION, [NAME, 'GSA']], [
+            /musical_ly(?:.+app_?version\/|_)([\w\.]+)/i                        // TikTok
+            ], [VERSION, [NAME, 'TikTok']], [
 
             /headlesschrome(?:\/([\w\.]+)| )/i                                  // Chrome Headless
             ], [VERSION, [NAME, CHROME+' Headless']], [
@@ -25492,7 +25604,8 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             // Other
             /(polaris|lynx|dillo|icab|doris|amaya|w3m|netsurf|sleipnir|obigo|mosaic|(?:go|ice|up)[\. ]?browser)[-\/ ]?v?([\w\.]+)/i,
                                                                                 // Polaris/Lynx/Dillo/iCab/Doris/Amaya/w3m/NetSurf/Sleipnir/Obigo/Mosaic/Go/ICE/UP.Browser
-            /(links) \(([\w\.]+)/i                                              // Links
+            /(links) \(([\w\.]+)/i,                                             // Links
+            /panasonic;(viera)/i                                                // Panasonic Viera
             ], [NAME, VERSION], [
             
             /(cobalt)\/([\w\.]+)/i                                              // Cobalt
@@ -25535,19 +25648,18 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             //////////////////////////
             // MOBILES & TABLETS
-            // Ordered by popularity
             /////////////////////////
 
             // Samsung
             /\b(sch-i[89]0\d|shw-m380s|sm-[ptx]\w{2,4}|gt-[pn]\d{2,4}|sgh-t8[56]9|nexus 10)/i
             ], [MODEL, [VENDOR, SAMSUNG], [TYPE, TABLET]], [
-            /\b((?:s[cgp]h|gt|sm)-\w+|galaxy nexus)/i,
+            /\b((?:s[cgp]h|gt|sm)-\w+|sc[g-]?[\d]+a?|galaxy nexus)/i,
             /samsung[- ]([-\w]+)/i,
             /sec-(sgh\w+)/i
             ], [MODEL, [VENDOR, SAMSUNG], [TYPE, MOBILE]], [
 
             // Apple
-            /\((ip(?:hone|od)[\w ]*);/i                                         // iPod/iPhone
+            /(?:\/|\()(ip(?:hone|od)[\w, ]*)(?:\/|;)/i                          // iPod/iPhone
             ], [MODEL, [VENDOR, APPLE], [TYPE, MOBILE]], [
             /\((ipad);[-\w\),; ]+apple/i,                                       // iPad
             /applecoremedia\/[\w\.]+ \((ipad)/i,
@@ -25555,6 +25667,10 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             ], [MODEL, [VENDOR, APPLE], [TYPE, TABLET]], [
             /(macintosh);/i
             ], [MODEL, [VENDOR, APPLE]], [
+
+            // Sharp
+            /\b(sh-?[altvz]?\d\d[a-ekm]?)/i
+            ], [MODEL, [VENDOR, SHARP], [TYPE, MOBILE]], [
 
             // Huawei
             /\b((?:ag[rs][23]?|bah2?|sht?|btv)-a?[lw]\d{2})\b(?!.+d\/s)/i
@@ -25633,7 +25749,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             // Amazon
             /(alexa)webm/i,
-            /(kf[a-z]{2}wi)( bui|\))/i,                                         // Kindle Fire without Silk
+            /(kf[a-z]{2}wi|aeo[c-r]{2})( bui|\))/i,                             // Kindle Fire without Silk / Echo Show
             /(kf[a-z]+)( bui|\)).+silk\//i                                      // Kindle Fire HD
             ], [MODEL, [VENDOR, AMAZON], [TYPE, TABLET]], [
             /((?:sd|kf)[0349hijorstuw]+)( bui|\)).+silk\//i                     // Fire Phone
@@ -25659,7 +25775,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             // ZTE
             /(zte)[- ]([\w ]+?)(?: bui|\/|\))/i,
-            /(alcatel|geeksphone|nexian|panasonic|sony(?!-bra))[-_ ]?([-\w]*)/i         // Alcatel/GeeksPhone/Nexian/Panasonic/Sony
+            /(alcatel|geeksphone|nexian|panasonic(?!(?:;|\.))|sony(?!-bra))[-_ ]?([-\w]*)/i         // Alcatel/GeeksPhone/Nexian/Panasonic/Sony
             ], [VENDOR, [MODEL, /_/g, ' '], [TYPE, MOBILE]], [
 
             // Acer
@@ -25670,10 +25786,6 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             /droid.+; (m[1-5] note) bui/i,
             /\bmz-([-\w]{2,})/i
             ], [MODEL, [VENDOR, 'Meizu'], [TYPE, MOBILE]], [
-
-            // Sharp
-            /\b(sh-?[altvz]?\d\d[a-ekm]?)/i
-            ], [MODEL, [VENDOR, SHARP], [TYPE, MOBILE]], [
 
             // MIXED
             /(blackberry|benq|palm(?=\-)|sonyericsson|acer|asus|dell|meizu|motorola|polytron)[-_ ]?([-\w]*)/i,
@@ -25686,6 +25798,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             /(oppo) ?([\w ]+) bui/i                                             // OPPO
             ], [VENDOR, MODEL, [TYPE, MOBILE]], [
 
+            /(kobo)\s(ereader|touch)/i,                                         // Kobo
             /(archos) (gamepad2?)/i,                                            // Archos
             /(hp).+(touchpad(?!.+tablet)|tablet)/i,                             // HP TouchPad
             /(kindle)\/([\w\.]+)/i,                                             // Kindle
@@ -25756,20 +25869,6 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             ], [MODEL, [VENDOR, ZEBRA], [TYPE, MOBILE]], [
 
             ///////////////////
-            // CONSOLES
-            ///////////////////
-
-            /(ouya)/i,                                                          // Ouya
-            /(nintendo) ([wids3utch]+)/i                                        // Nintendo
-            ], [VENDOR, MODEL, [TYPE, CONSOLE]], [
-            /droid.+; (shield) bui/i                                            // Nvidia
-            ], [MODEL, [VENDOR, 'Nvidia'], [TYPE, CONSOLE]], [
-            /(playstation [345portablevi]+)/i                                   // Playstation
-            ], [MODEL, [VENDOR, SONY], [TYPE, CONSOLE]], [
-            /\b(xbox(?: one)?(?!; xbox))[\); ]/i                                // Microsoft Xbox
-            ], [MODEL, [VENDOR, MICROSOFT], [TYPE, CONSOLE]], [
-
-            ///////////////////
             // SMARTTVS
             ///////////////////
 
@@ -25792,11 +25891,27 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             ], [MODEL, [VENDOR, SONY], [TYPE, SMARTTV]], [
             /(mitv-\w{5}) bui/i                                                 // Xiaomi
             ], [MODEL, [VENDOR, XIAOMI], [TYPE, SMARTTV]], [
+            /Hbbtv.*(technisat) (.*);/i                                         // TechniSAT
+            ], [VENDOR, MODEL, [TYPE, SMARTTV]], [
             /\b(roku)[\dx]*[\)\/]((?:dvp-)?[\d\.]*)/i,                          // Roku
-            /hbbtv\/\d+\.\d+\.\d+ +\([\w ]*; *(\w[^;]*);([^;]*)/i               // HbbTV devices
+            /hbbtv\/\d+\.\d+\.\d+ +\([\w\+ ]*; *([\w\d][^;]*);([^;]*)/i         // HbbTV devices
             ], [[VENDOR, trim], [MODEL, trim], [TYPE, SMARTTV]], [
             /\b(android tv|smart[- ]?tv|opera tv|tv; rv:)\b/i                   // SmartTV from Unidentified Vendors
             ], [[TYPE, SMARTTV]], [
+
+            ///////////////////
+            // CONSOLES
+            ///////////////////
+
+            /(ouya)/i,                                                          // Ouya
+            /(nintendo) ([wids3utch]+)/i                                        // Nintendo
+            ], [VENDOR, MODEL, [TYPE, CONSOLE]], [
+            /droid.+; (shield) bui/i                                            // Nvidia
+            ], [MODEL, [VENDOR, 'Nvidia'], [TYPE, CONSOLE]], [
+            /(playstation [345portablevi]+)/i                                   // Playstation
+            ], [MODEL, [VENDOR, SONY], [TYPE, CONSOLE]], [
+            /\b(xbox(?: one)?(?!; xbox))[\); ]/i                                // Microsoft Xbox
+            ], [MODEL, [VENDOR, MICROSOFT], [TYPE, CONSOLE]], [
 
             ///////////////////
             // WEARABLES
@@ -25804,11 +25919,13 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             /((pebble))app/i                                                    // Pebble
             ], [VENDOR, MODEL, [TYPE, WEARABLE]], [
+            /(watch)(?: ?os[,\/]|\d,\d\/)[\d\.]+/i                              // Apple Watch
+            ], [MODEL, [VENDOR, APPLE], [TYPE, WEARABLE]], [
             /droid.+; (glass) \d/i                                              // Google Glass
             ], [MODEL, [VENDOR, GOOGLE], [TYPE, WEARABLE]], [
             /droid.+; (wt63?0{2,3})\)/i
             ], [MODEL, [VENDOR, ZEBRA], [TYPE, WEARABLE]], [
-            /(quest( 2)?)/i                                                     // Oculus Quest
+            /(quest( 2| pro)?)/i                                                // Oculus Quest
             ], [MODEL, [VENDOR, FACEBOOK], [TYPE, WEARABLE]], [
 
             ///////////////////
@@ -25817,6 +25934,8 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             /(tesla)(?: qtcarbrowser|\/[-\w\.]+)/i                              // Tesla
             ], [VENDOR, [TYPE, EMBEDDED]], [
+            /(aeobc)\b/i                                                        // Echo Dot
+            ], [MODEL, [VENDOR, AMAZON], [TYPE, EMBEDDED]], [
 
             ////////////////////
             // MIXED (GENERIC)
@@ -25846,7 +25965,8 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             /(webkit|trident|netfront|netsurf|amaya|lynx|w3m|goanna)\/([\w\.]+)/i, // WebKit/Trident/NetFront/NetSurf/Amaya/Lynx/w3m/Goanna
             /ekioh(flow)\/([\w\.]+)/i,                                          // Flow
             /(khtml|tasman|links)[\/ ]\(?([\w\.]+)/i,                           // KHTML/Tasman/Links
-            /(icab)[\/ ]([23]\.[\d\.]+)/i                                       // iCab
+            /(icab)[\/ ]([23]\.[\d\.]+)/i,                                      // iCab
+            /\b(libweb)/i
             ], [NAME, VERSION], [
 
             /rv\:([\w\.]{1,9})\b.+(gecko)/i                                     // Gecko
@@ -25867,11 +25987,12 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
 
             // iOS/macOS
             /ip[honead]{2,4}\b(?:.*os ([\w]+) like mac|; opera)/i,              // iOS
+            /ios;fbsv\/([\d\.]+)/i,
             /cfnetwork\/.+darwin/i
             ], [[VERSION, /_/g, '.'], [NAME, 'iOS']], [
             /(mac os x) ?([\w\. ]*)/i,
             /(macintosh|mac_powerpc\b)(?!.+haiku)/i                             // Mac OS
-            ], [[NAME, 'Mac OS'], [VERSION, /_/g, '.']], [
+            ], [[NAME, MAC_OS], [VERSION, /_/g, '.']], [
 
             // Mobile OSes
             /droid ([\w\.]+)\b.+(android[- ]x86|harmonyos)/i                    // Android-x86/HarmonyOS
@@ -25890,12 +26011,19 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             /web0s;.+rt(tv)/i,
             /\b(?:hp)?wos(?:browser)?\/([\w\.]+)/i                              // WebOS
             ], [VERSION, [NAME, 'webOS']], [
+            /watch(?: ?os[,\/]|\d,\d\/)([\d\.]+)/i                              // watchOS
+            ], [VERSION, [NAME, 'watchOS']], [
 
             // Google Chromecast
             /crkey\/([\d\.]+)/i                                                 // Google Chromecast
             ], [VERSION, [NAME, CHROME+'cast']], [
-            /(cros) [\w]+ ([\w\.]+\w)/i                                         // Chromium OS
-            ], [[NAME, 'Chromium OS'], VERSION],[
+            /(cros) [\w]+(?:\)| ([\w\.]+)\b)/i                                  // Chromium OS
+            ], [[NAME, CHROMIUM_OS], VERSION],[
+
+            // Smart TVs
+            /panasonic;(viera)/i,                                               // Panasonic Viera
+            /(netrange)mmh/i,                                                   // Netrange
+            /(nettv)\/(\d+\.[\w\.]+)/i,                                         // NetTV
 
             // Console
             /(nintendo|playstation) ([wids345portablevuch]+)/i,                 // Nintendo/Playstation
@@ -25916,7 +26044,7 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             ], [[NAME, 'Solaris'], VERSION], [
             /((?:open)?solaris)[-\/ ]?([\w\.]*)/i,                              // Solaris
             /(aix) ((\d)(?=\.|\)| )[\w\.])*/i,                                  // AIX
-            /\b(beos|os\/2|amigaos|morphos|openvms|fuchsia|hp-ux)/i,            // BeOS/OS2/AmigaOS/MorphOS/OpenVMS/Fuchsia/HP-UX
+            /\b(beos|os\/2|amigaos|morphos|openvms|fuchsia|hp-ux|serenityos)/i, // BeOS/OS2/AmigaOS/MorphOS/OpenVMS/Fuchsia/HP-UX/SerenityOS
             /(unix) ?([\w\.]*)/i                                                // UNIX
             ], [NAME, VERSION]
         ]
@@ -25937,15 +26065,22 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             return new UAParser(ua, extensions).getResult();
         }
 
-        var _ua = ua || ((typeof window !== UNDEF_TYPE && window.navigator && window.navigator.userAgent) ? window.navigator.userAgent : EMPTY);
+        var _navigator = (typeof window !== UNDEF_TYPE && window.navigator) ? window.navigator : undefined;
+        var _ua = ua || ((_navigator && _navigator.userAgent) ? _navigator.userAgent : EMPTY);
+        var _uach = (_navigator && _navigator.userAgentData) ? _navigator.userAgentData : undefined;
         var _rgxmap = extensions ? extend(regexes, extensions) : regexes;
+        var _isSelfNav = _navigator && _navigator.userAgent == _ua;
 
         this.getBrowser = function () {
             var _browser = {};
             _browser[NAME] = undefined;
             _browser[VERSION] = undefined;
             rgxMapper.call(_browser, _ua, _rgxmap.browser);
-            _browser.major = majorize(_browser.version);
+            _browser[MAJOR] = majorize(_browser[VERSION]);
+            // Brave-specific detection
+            if (_isSelfNav && _navigator && _navigator.brave && typeof _navigator.brave.isBrave == FUNC_TYPE) {
+                _browser[NAME] = 'Brave';
+            }
             return _browser;
         };
         this.getCPU = function () {
@@ -25960,6 +26095,14 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             _device[MODEL] = undefined;
             _device[TYPE] = undefined;
             rgxMapper.call(_device, _ua, _rgxmap.device);
+            if (_isSelfNav && !_device[TYPE] && _uach && _uach.mobile) {
+                _device[TYPE] = MOBILE;
+            }
+            // iPadOS-specific detection: identified as Mac, but has some iOS-only properties
+            if (_isSelfNav && _device[MODEL] == 'Macintosh' && _navigator && typeof _navigator.standalone !== UNDEF_TYPE && _navigator.maxTouchPoints && _navigator.maxTouchPoints > 2) {
+                _device[MODEL] = 'iPad';
+                _device[TYPE] = TABLET;
+            }
             return _device;
         };
         this.getEngine = function () {
@@ -25974,6 +26117,11 @@ var __WEBPACK_AMD_DEFINE_RESULT__;//////////////////////////////////////////////
             _os[NAME] = undefined;
             _os[VERSION] = undefined;
             rgxMapper.call(_os, _ua, _rgxmap.os);
+            if (_isSelfNav && !_os[NAME] && _uach && _uach.platform != 'Unknown') {
+                _os[NAME] = _uach.platform  
+                                    .replace(/chrome os/i, CHROMIUM_OS)
+                                    .replace(/macos/i, MAC_OS);           // backward compatibility
+            }
             return _os;
         };
         this.getResult = function () {
@@ -27643,7 +27791,6 @@ const EventHandler_1 = __webpack_require__(4);
 class PeerM2M {
     constructor(instance) {
         this.isPeerCall = true;
-        this.currentParticipantUser = null;
         this.participantsArray = [];
         this.mediaType = "";
         this.callSession = "";
@@ -27707,7 +27854,7 @@ class PeerM2M {
             let options = Object.assign({}, callOptions);
             params.participantArray = options.receivers;
             params.to = [participant];
-            this.currentParticipantUser = participant;
+            options.onicecandidate = (candidate) => this.instance.onIceCandidate(candidate, params.uUID, participant);
             options = this.instance.AddOnTrackHandler(options, params.uUID, participant);
             const webRtcPeer = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerSendrecv(options, (error) => {
                 if (error) {
@@ -27727,12 +27874,8 @@ class PeerM2M {
             });
         });
     }
-    getRTCPeerByID(uUID, ref_id) {
-        const participant = this.instance.sessionInfo[uUID]["participants"][ref_id];
-        return participant;
-    }
     AddCandidate(message) {
-        const participant = this.getRTCPeerByID(message.sessionUuid, message.from);
+        const participant = this.instance.getPeerById(message.sessionUuid, message.from);
         console.log("Add Ice Candidate::::", message, participant);
         if (participant) {
             participant.peerConnection.addIceCandidate(message.candidate, (error) => {
@@ -27747,10 +27890,11 @@ class PeerM2M {
         }
     }
     CallResponse(message) {
-        const participant = this.getRTCPeerByID(message.sessionUuid, message.from);
+        var _a, _b;
+        const participant = this.instance.getPeerById(message.sessionUuid, (_a = message.from) !== null && _a !== void 0 ? _a : message.referenceId);
         console.info("CallResponse", participant, message);
-        if (message.response == "accepted") {
-            participant.peerConnection.processAnswer(message.sdpAnswer, (error) => {
+        if (message.response == "accepted" || (message.sdpType == "sdp_answer" && message.sdp)) {
+            participant.peerConnection.processAnswer((_b = message.sdpAnswer) !== null && _b !== void 0 ? _b : message.sdp, (error) => {
                 if (error) {
                     EventHandler_1.default.SessionSDP(error, this.instance);
                     return console.error(error);
@@ -27767,9 +27911,7 @@ class PeerM2M {
         params.sessionUuid = params.uUID = uUID;
         params.audio = 1;
         params.video = this.instance.sessionInfo[uUID].mediaType == "video" ? 1 : 0;
-        ;
         params.isReInvite = 0;
-        this.currentParticipantUser = this.instance.currentFromUser;
         this.instance.AcceptCall(params).then((results) => {
             console.log("group call join Accept Response: ", results);
         });
@@ -27785,11 +27927,12 @@ class PeerM2M {
                         callType: "many_to_many",
                         isPeer: 1,
                         isInitiator: 1,
-                        to: [ref],
+                        to: ref,
                         localVideo: this.instance.localVideos[uUID],
                         video: this.instance.videoStatus[uUID],
                         audio: this.instance.audioStatus[uUID],
                         sessionUuid: uUID,
+                        uUID: uUID,
                         requestType: "to_receive_stream",
                     });
                     //console.warn("Create Peer connection for", ref);
@@ -27815,35 +27958,6 @@ class PeerM2M {
     }
     SetParticipantStatus(messageData) {
         EventHandler_1.default.SetParticipantStatus(messageData, this.instance);
-    }
-    OnParticipantIceCandidate(candidate, ref) {
-        var message = {
-            requestType: "ice_candidate",
-            candidate: candidate,
-            referenceId: ref,
-            sessionUuid: this.callSession,
-        };
-        this.instance.SendPacket(message);
-    }
-    onParticipantOffer(error, offerSdp, to) {
-        if (error) {
-            EventHandler_1.default.OnOfferIncomingCall(error, this);
-            return console.error("Error generating the call offer ", error);
-        }
-        let uUID = new Date().getTime().toString();
-        const message = {
-            from: this.instance.currentUser,
-            to: to,
-            requestType: "to_receive_stream",
-            sdp: offerSdp,
-            sdp_type: "sdpOffer",
-            requestId: uUID,
-            type: "request",
-            sessionUuid: this.callSession,
-            mcToken: this.instance.McToken,
-        };
-        console.log("===onParticipantOffer==", message);
-        this.instance.SendPacket(message);
     }
     LeaveGroupCall() {
         let response = {
