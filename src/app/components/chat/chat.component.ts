@@ -336,12 +336,21 @@ export class ChatComponent implements OnInit {
   }
 
   updateGroup(grp_info) {
-    console.log("** in update group function \n\n");
+    //console.log("** in update group function \n\n");
     let new_group = grp_info.data.groupModel;
     // return;
     if(grp_info.data.action == "new") {
       let chat = grp_info.data.groupModel;
-      // console.log("** grp", chat);
+      let subscribedata = {
+        key: chat.channel_key,
+        channel: chat.channel_name,
+      };
+      let data = [];
+      data.push(subscribedata);
+      this.pubsubService.subscribeToChat(data);
+      console.log("!!!!!! grp", subscribedata);
+
+      //this.pubsubService.subscribeToChat(data);
       if (chat['participants'].length) {
         chat['participants'] = chat['participants'].map(r => {
           r['username'] = r['username'] || r['full_name'];
@@ -365,7 +374,7 @@ export class ChatComponent implements OnInit {
       this.setActiveChatt.emit(chat);
       this.loading = false;
 
-      console.log("** group added successfully\n", grp_info, "\n");  //{new_group}, {index}, this.AllGroups   
+      // console.log("** group added successfully\n", grp_info, "\n");  //{new_group}, {index}, this.AllGroups   
     }
 
 
@@ -376,9 +385,10 @@ export class ChatComponent implements OnInit {
       if(index > -1) {
         this.AllGroups.splice(index, 1);
         this.pubsubService.unsubscribeToChat({key: new_group.channel_key, channel: new_group.channel_name});
+        this.activeChat = {};
         this.changeDetector.detectChanges();
       }
-      console.log("** group deleted successfully\n", grp_info, "\n");  //{new_group}, {index}, this.AllGroups
+      console.log("1234** group deleted successfully\n", grp_info,  "\n", this.activeChat, this.loading, !this.activeChat.chatTitle && !this.loading);  //{new_group}, {index}, this.AllGroups
     }
 
 
@@ -388,7 +398,7 @@ export class ChatComponent implements OnInit {
       if(grp_ind > -1) {
         this.AllGroups[grp_ind].group_title = new_group.group.group_title;
         this.AllGroups[grp_ind].chatTitle = new_group.group.group_title; 
-        console.log("*** edit notification:\n", new_group, "\n", this.AllGroups, "\n",new_group.group.group_title);
+        //console.log("*** edit notification:\n", new_group, "\n", this.AllGroups, "\n",new_group.group.group_title);
       }
       
     }
@@ -420,7 +430,7 @@ export class ChatComponent implements OnInit {
           groupModel: v
           
         };
-        console.log("*** edit grppp  -sending side:\n", groupInfo, "/n", v);
+        //console.log("*** edit grppp  -sending side:\n", groupInfo, "/n", v);
         this.pubsubService.sendNotificationOnGroupUpdation(groupInfo);
         //ABM
 
@@ -452,12 +462,14 @@ export class ChatComponent implements OnInit {
           action: "delete",
           groupModel: v
         };
-        console.log("** delete group: ", groupInfo, group);
+        // console.log("** delete group: ", groupInfo, group);
         this.pubsubService.sendNotificationOnGroupUpdation(groupInfo);
         //ABM
 
 
         this.getAllGroups();
+        this.activeChat = {};
+        this.loading = false;
         this.toastr.success('The group has been deleted!', 'Success!');
       } else {
         console.error(v.message);

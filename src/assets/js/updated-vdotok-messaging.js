@@ -220,14 +220,12 @@ class Client extends events__WEBPACK_IMPORTED_MODULE_0__["EventEmitter"] {
          * Set CallBacks
          */
         client.on("message", (topic, message, packet) => {
-            console.log('** => \n\non MessagePacket\n\n', {packet}, "====Received-====message\n", JSON.parse(message.toString()));
+            console.log('**in sdk => \non MessagePacket\n', {packet}, "====Received-====message\n", JSON.parse(message.toString()));
             //{"time":1604670380,"event":"status","channel":"3927/","who":[{"id":"FJDE5NXLZ2SDWL7PXSQYUHXUHM"}]}
             try {
                 let JsonPacket = JSON.parse(message.toString());
                 if (topic === "emitter/notification/") {
                     this.emit("notification", JsonPacket);
-                    this.SetMessagePacket(packet);
-
                 }
                 if (JsonPacket.hasOwnProperty("event")) {
                     this.SetPresenceEvent(JsonPacket);
@@ -279,16 +277,20 @@ class Client extends events__WEBPACK_IMPORTED_MODULE_0__["EventEmitter"] {
         this.Connection.publish("emitter/keygen/", JSON.stringify(channelOptions));
     }
     SendNotification(options) {
-        let group_info = {
-            from: options.from,
-            to: options.to,
-            data: {
-                action: options.action,
-                groupModel: options.groupModel
-            }
-        };
-        this.Connection.publish("emitter/notification/", JSON.stringify(group_info));
+      console.log("000 - sdk SendNotification");
+      let group_info = {
+        from: options.from,
+        to: options.to,
+        data: {
+          action: options.action,
+          groupModel: options.groupModel
+        }
+      };
+      this.Connection.publish("emitter/notification/", JSON.stringify(group_info));
     }
+
+
+
     Subscribe(options) {
         let ChannelString = `${options.key}/${options.channel}`;
         if (options && options.last) {

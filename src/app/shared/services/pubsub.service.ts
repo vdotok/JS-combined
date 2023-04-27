@@ -54,6 +54,7 @@ export class PubsubService implements OnDestroy {
   }
 
   sendNotificationOnGroupUpdation(obj) {
+    console.log("** sendNotificationOnGroupUpdation")
     this.Client.SendNotification(obj);
   }
 
