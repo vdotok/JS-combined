@@ -210,6 +210,7 @@ export class ChatComponent implements OnInit {
           this.calling.callerName = this.findUserName(response.from);
           this.calling.templateName = response.callType == 'video' ? 'groupIncommingVideoCall' : 'groupIncommingAudioCall';
           this.calling.callType = response.callType;
+          this.calling.uuid = response.uuid;
           this.changeDetector.detectChanges();
           break;
         case "NEW_PARTICIPANT":
@@ -858,7 +859,9 @@ export class ChatComponent implements OnInit {
       audio:1,
       video:1
     }
-    this.vdkOne2OneCallSVC.Call(params);
+    this.vdkOne2OneCallSVC.Call(params).then(uuid => {
+      this.calling.uuid = uuid;
+    });
   }
 
   startM2MVideoCall() {
@@ -883,7 +886,9 @@ export class ChatComponent implements OnInit {
       //timeout: 40,
       isPeer: 0
     }
-    this.vdkOne2OneCallSVC.groupCall(params);
+    this.vdkOne2OneCallSVC.groupCall(params).then(uuid => {
+      this.calling.uuid = uuid;
+    });
   }
 
   acceptcall() {
@@ -964,7 +969,9 @@ export class ChatComponent implements OnInit {
       to: [...participantsList],
       data: { calleName: this.currentUserData.full_name }
     }
-    this.vdkOne2OneCallSVC.audioCall(params);
+    this.vdkOne2OneCallSVC.audioCall(params).then(uuid => {
+      this.calling.uuid = uuid;
+    });
   }
 
   startm2mAudioCall() {
@@ -989,7 +996,9 @@ export class ChatComponent implements OnInit {
       timeout: 40,
       isPeer: 0
     }
-    this.vdkOne2OneCallSVC.groupCall(params);
+    this.vdkOne2OneCallSVC.groupCall(params).then(uuid => {
+      this.calling.uuid = uuid;
+    });
   }
 
   changeSettings(filed) {
@@ -1004,12 +1013,12 @@ export class ChatComponent implements OnInit {
     this.settings[filed] = !this.settings[filed];
     switch (filed) {
       case 'isOnInProgressCamara':
-        this.settings[filed] ? this.vdkOne2OneCallSVC.setCameraOn() : this.vdkOne2OneCallSVC.setCameraOff();
+        this.settings[filed] ? this.vdkOne2OneCallSVC.setCameraOn(this.calling.uuid) : this.vdkOne2OneCallSVC.setCameraOff(this.calling.uuid);
         const displaystyle = this.settings[filed] ? 'block' : 'none';
         if (document.getElementById('OutgoingVideo')) document.getElementById('OutgoingVideo').style.display = displaystyle;
         break;
       case 'isOnInProgressMicrophone':
-        this.settings[filed] ? this.vdkOne2OneCallSVC.setMicUnmute() : this.vdkOne2OneCallSVC.setMicMute();
+        this.settings[filed] ? this.vdkOne2OneCallSVC.setMicUnmute(this.calling.uuid) : this.vdkOne2OneCallSVC.setMicMute(this.calling.uuid);
         const enabled = this.settings[filed];
         const audiotrack: any = (<HTMLInputElement>document.getElementById("localAudio"));
         if (audiotrack && audiotrack.audioTracks) {
@@ -1023,14 +1032,14 @@ export class ChatComponent implements OnInit {
     this.settings[filed] = !this.settings[filed];
     switch (filed) {
       case 'isOnInProgressCamara':
-        this.settings[filed] ? this.vdkOne2OneCallSVC.setCameraOn() : this.vdkOne2OneCallSVC.setCameraOff();
+        this.settings[filed] ? this.vdkOne2OneCallSVC.setCameraOn(this.calling.uuid) : this.vdkOne2OneCallSVC.setCameraOff(this.calling.uuid);
         const displaystyle = this.settings[filed] ? 'block' : 'none';
         const displayNamestyle = this.settings[filed] ? 'none' : 'block';
         document.getElementById('localVideo').style.display = displaystyle;
         document.getElementById('localNameHolder').style.display = displayNamestyle;
         break;
       case 'isOnInProgressMicrophone':
-        this.settings[filed] ? this.vdkOne2OneCallSVC.setMicUnmute() : this.vdkOne2OneCallSVC.setMicMute();
+        this.settings[filed] ? this.vdkOne2OneCallSVC.setMicUnmute(this.calling.uuid) : this.vdkOne2OneCallSVC.setMicMute(this.calling.uuid);
         const enabled = this.settings[filed];
         const audiotrack: any = (<HTMLInputElement>document.getElementById("localAudio"));
         if (audiotrack && audiotrack.audioTracks) {

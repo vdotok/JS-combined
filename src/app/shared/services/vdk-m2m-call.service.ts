@@ -22,31 +22,31 @@ export class VdkM2MCallService {
   }
 
   groupCall(params): void {
-    this.Client.GroupCall(params);
+    return this.Client.GroupCall(params);
   }
 
   joinGroupCall(params): void {
-    this.Client.JoinGroupCall(params);
+    return this.Client.JoinGroupCall(params);
   }
 
   leaveGroupCall(): void {
     this.Client.LeaveGroupCall();
   }
 
-  setCameraOn(): void {
-    this.Client.SetCameraOn();
+  setCameraOn(uuid): void {
+    this.Client.SetCameraOn(uuid);
   }
 
-  setCameraOff(): void {
-    this.Client.SetCameraOff();
+  setCameraOff(uuid): void {
+    this.Client.SetCameraOff(uuid);
   }
 
-  setMicMute(): void {
-    this.Client.SetMicMute();
+  setMicMute(uuid): void {
+    this.Client.SetMicMute(uuid);
   }
 
-  setMicUnmute(): void {
-    this.Client.SetMicUnmute();
+  setMicUnmute(uuid): void {
+    this.Client.SetMicUnmute(uuid);
   }
 
   setParticipantVideo(participant, vidio) {

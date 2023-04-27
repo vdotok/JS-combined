@@ -365,7 +365,7 @@ class Client extends events_1.EventEmitter {
                     let participant = false;
                     let sessionInfo = this.sessionInfo[messageData.sessionUuid];
                     if (sessionInfo) {
-                        participant = this.getPeerById(messageData.sessionUuid);
+                        participant = this.getPeerById(messageData.sessionUuid, messageData.from);
                         if (this.isManyToMany && Object.keys(this.manyToMany).length) {
                             if (!this.manyToMany.isPeerCall) {
                                 this.manyToMany.AddCandidate(messageData);
@@ -1668,20 +1668,22 @@ class Client extends events_1.EventEmitter {
             for (var uUID in this.sessionInfo) {
                 if (!onlyUUID || (onlyUUID && onlyUUID == uUID)) //only a single session get deleted or all sessions
                  {
-                    let webRTCPeer = this.getPeerById(uUID);
-                    if (webRTCPeer) {
-                        webRTCPeer.dispose();
-                        if (status) {
-                            this.sendDisposePacket(uUID);
+                    for (let refId in this.sessionInfo[uUID]["participants"]) {
+                        let webRTCPeer = this.getPeerById(uUID, refId);
+                        if (webRTCPeer) {
+                            webRTCPeer.dispose();
+                            if (status) {
+                                this.sendDisposePacket(uUID);
+                            }
+                            if (webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection) {
+                                webRTCPeer.peerConnection.removeEventListener("iceconnectionstatechange", this.onIceError, false);
+                            }
                         }
-                        if (webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection) {
-                            webRTCPeer.peerConnection.removeEventListener("iceconnectionstatechange", this.onIceError, false);
-                        }
-                        if (this.sessionInfo[uUID].callTimeoutInterval) {
-                            clearTimeout(this.sessionInfo[uUID].callTimeoutInterval);
-                        }
-                        delete this.sessionInfo[uUID];
                     }
+                    if (this.sessionInfo[uUID].callTimeoutInterval) {
+                        clearTimeout(this.sessionInfo[uUID].callTimeoutInterval);
+                    }
+                    delete this.sessionInfo[uUID];
                 }
             }
         }
@@ -1847,6 +1849,12 @@ class Client extends events_1.EventEmitter {
             if (sender && sender.track && sender.track.kind === type) {
                 let t = (stream.getTracks().filter((track) => track.kind === type))[0];
                 replaced = await sender.replaceTrack(t);
+                if (replaced === undefined) { //as per replaceTrack docs it returns undefined when successfully replaced
+                    replaced = true;
+                }
+                else {
+                    console.error("Error while replacing tracks", replaced, uuid, type, refId);
+                }
             }
         }
         return replaced;
@@ -1915,10 +1923,6 @@ class Client extends events_1.EventEmitter {
      * SetCameraOn
      */
     async SetCameraOn(uUID, facingMode = 'user', extraData = null) {
-        let webRTCPeer = this.getPeerById(uUID);
-        if (!(webRTCPeer === null || webRTCPeer === void 0 ? void 0 : webRTCPeer.peerConnection)) {
-            return { status: false, message: "Peer Connection not found!", tryNewCall: true };
-        }
         let session = (this.isManyToMany) ? this.callSession : this.UUIDSessions[this.currentFromUser];
         if (uUID) {
             session = uUID;
@@ -2145,12 +2149,7 @@ class Client extends events_1.EventEmitter {
         this.manyToMany = manyTomany;
         this.isManyToMany = true;
         this.sessionInfo[uUID] = { callType: "many_to_many", isPeer: params.isPeer || 0, isInitiator: 1, call_state: "STARTING" };
-        this.manyToMany.GroupCall(params).then((r) => {
-            console.log(r);
-        }).catch((e) => {
-            console.log(e);
-            alert(e.message);
-        });
+        return this.manyToMany.GroupCall(params);
     }
     JoinGroupCall(params) {
         let manyTomany = new PeerM2M_1.default(this);
@@ -2160,7 +2159,7 @@ class Client extends events_1.EventEmitter {
         this.mediaType = params.callType;
         this.localVideo = params.localVideo;
         this.isManyToMany = true;
-        this.manyToMany.JoinGroupCall(params, this.callSession);
+        return this.manyToMany.JoinGroupCall(params, this.callSession);
     }
     /**
      * SetParticipantVideo
@@ -2802,7 +2801,8 @@ class EventHandlerService {
                 from: from,
                 callType: res.mediaType,
                 session: callType,
-                data: res.data
+                data: res.data,
+                uuid: res.sessionUuid,
             });
             // instance.emit("groupCall",{type:"PARTICIPANT_LIST",message:"Participant List is available",participant_list:participantList});
         }
@@ -27842,6 +27842,9 @@ class PeerM2M {
                             callType: "many_to_many",
                             peerConnection: result.webRtcPeer,
                         };
+                        if (options.receivers.length == Object.keys(this.instance.sessionInfo[params.uUID]["participants"]).length) {
+                            resolve(params.uUID);
+                        }
                     })
                         .catch((e) => {
                         console.error(e);
@@ -27917,9 +27920,7 @@ class PeerM2M {
         params.audio = 1;
         params.video = this.instance.sessionInfo[uUID].mediaType == "video" ? 1 : 0;
         params.isReInvite = 0;
-        this.instance.AcceptCall(params).then((results) => {
-            console.log("group call join Accept Response: ", results);
-        });
+        return this.instance.AcceptCall(params);
     }
     OnExistingParticipants(response) {
         const refIDs = response.referenceIds;

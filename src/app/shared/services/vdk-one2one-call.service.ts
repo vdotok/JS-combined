@@ -27,16 +27,16 @@ export class VdkOne2OneCallService {
     // this.Client.Disconnect();
   }
 
-  Call(params): void {
-    this.Client.Call(params);
+  Call(params): Promise<any> {
+    return this.Client.Call(params);
   }
 
-  audioCall(params): void {
-    this.Client.AudioCall(params);
+  audioCall(params): Promise<any> {
+    return this.Client.AudioCall(params);
   }
 
   acceptCall(params): void {
-    this.Client.AcceptCall(params);
+    return this.Client.AcceptCall(params);
   }
 
   rejectCall(from , val): void {
@@ -52,25 +52,25 @@ export class VdkOne2OneCallService {
     this.Client.CancelCall();
   }
 
-  setCameraOn(): void {
-    this.Client.SetCameraOn();
+  setCameraOn(uuid): void {
+    this.Client.SetCameraOn(uuid);
   }
 
-  setCameraOff(): void {
-    this.Client.SetCameraOff();
+  setCameraOff(uuid): void {
+    this.Client.SetCameraOff(uuid);
   }
 
-  setMicMute(): void {
-    this.Client.SetMicMute();
+  setMicMute(uuid): void {
+    this.Client.SetMicMute(uuid);
   }
 
-  setMicUnmute(): void {
-    this.Client.SetMicUnmute();
+  setMicUnmute(uuid): void {
+    this.Client.SetMicUnmute(uuid);
   }
 
 
-  groupCall(params): void {
-    this.Client.GroupCall(params);
+  groupCall(params): Promise<any> {
+    return this.Client.GroupCall(params);
   }
 
   joinGroupCall(params): void {
