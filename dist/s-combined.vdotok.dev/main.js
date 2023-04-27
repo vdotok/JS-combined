@@ -2143,6 +2143,7 @@ class ChatComponent {
           this.calling.callerName = this.findUserName(response.from);
           this.calling.templateName = response.callType == 'video' ? 'groupIncommingVideoCall' : 'groupIncommingAudioCall';
           this.calling.callType = response.callType;
+          this.calling.uuid = response.uuid;
           this.changeDetector.detectChanges();
           break;
         case "NEW_PARTICIPANT":
@@ -2727,7 +2728,9 @@ class ChatComponent {
       audio: 1,
       video: 1
     };
-    this.vdkOne2OneCallSVC.Call(params);
+    this.vdkOne2OneCallSVC.Call(params).then(uuid => {
+      this.calling.uuid = uuid;
+    });
   }
   startM2MVideoCall() {
     if (this.inCall()) return;
@@ -2751,7 +2754,9 @@ class ChatComponent {
       //timeout: 40,
       isPeer: 0
     };
-    this.vdkOne2OneCallSVC.groupCall(params);
+    this.vdkOne2OneCallSVC.groupCall(params).then(uuid => {
+      this.calling.uuid = uuid;
+    });
   }
   acceptcall() {
     console.log("acceptcall");
@@ -2826,7 +2831,9 @@ class ChatComponent {
         calleName: this.currentUserData.full_name
       }
     };
-    this.vdkOne2OneCallSVC.audioCall(params);
+    this.vdkOne2OneCallSVC.audioCall(params).then(uuid => {
+      this.calling.uuid = uuid;
+    });
   }
   startm2mAudioCall() {
     if (this.inCall()) return;
@@ -2849,7 +2856,9 @@ class ChatComponent {
       timeout: 40,
       isPeer: 0
     };
-    this.vdkOne2OneCallSVC.groupCall(params);
+    this.vdkOne2OneCallSVC.groupCall(params).then(uuid => {
+      this.calling.uuid = uuid;
+    });
   }
   changeSettings(filed) {
     if (this.calling.session == 'one_to_one') {
@@ -2862,12 +2871,12 @@ class ChatComponent {
     this.settings[filed] = !this.settings[filed];
     switch (filed) {
       case 'isOnInProgressCamara':
-        this.settings[filed] ? this.vdkOne2OneCallSVC.setCameraOn() : this.vdkOne2OneCallSVC.setCameraOff();
+        this.settings[filed] ? this.vdkOne2OneCallSVC.setCameraOn(this.calling.uuid) : this.vdkOne2OneCallSVC.setCameraOff(this.calling.uuid);
         const displaystyle = this.settings[filed] ? 'block' : 'none';
         if (document.getElementById('OutgoingVideo')) document.getElementById('OutgoingVideo').style.display = displaystyle;
         break;
       case 'isOnInProgressMicrophone':
-        this.settings[filed] ? this.vdkOne2OneCallSVC.setMicUnmute() : this.vdkOne2OneCallSVC.setMicMute();
+        this.settings[filed] ? this.vdkOne2OneCallSVC.setMicUnmute(this.calling.uuid) : this.vdkOne2OneCallSVC.setMicMute(this.calling.uuid);
         const enabled = this.settings[filed];
         const audiotrack = document.getElementById("localAudio");
         if (audiotrack && audiotrack.audioTracks) {
@@ -2880,14 +2889,14 @@ class ChatComponent {
     this.settings[filed] = !this.settings[filed];
     switch (filed) {
       case 'isOnInProgressCamara':
-        this.settings[filed] ? this.vdkOne2OneCallSVC.setCameraOn() : this.vdkOne2OneCallSVC.setCameraOff();
+        this.settings[filed] ? this.vdkOne2OneCallSVC.setCameraOn(this.calling.uuid) : this.vdkOne2OneCallSVC.setCameraOff(this.calling.uuid);
         const displaystyle = this.settings[filed] ? 'block' : 'none';
         const displayNamestyle = this.settings[filed] ? 'none' : 'block';
         document.getElementById('localVideo').style.display = displaystyle;
         document.getElementById('localNameHolder').style.display = displayNamestyle;
         break;
       case 'isOnInProgressMicrophone':
-        this.settings[filed] ? this.vdkOne2OneCallSVC.setMicUnmute() : this.vdkOne2OneCallSVC.setMicMute();
+        this.settings[filed] ? this.vdkOne2OneCallSVC.setMicUnmute(this.calling.uuid) : this.vdkOne2OneCallSVC.setMicMute(this.calling.uuid);
         const enabled = this.settings[filed];
         const audiotrack = document.getElementById("localAudio");
         if (audiotrack && audiotrack.audioTracks) {
@@ -3431,7 +3440,7 @@ class LoginComponent {
     _shared_FormsHandler_FormsHandler__WEBPACK_IMPORTED_MODULE_1__["default"].validateForm(this.loginForm);
     if (this.loginForm.invalid) return;
     const saveData = this.loginForm.value;
-    saveData.project_id = '115G1WZI';
+    saveData.project_id = '1RN1RP';
     this.loading = true;
     this.formError = null;
     this.auth.login(saveData).subscribe(v => {
@@ -3567,7 +3576,7 @@ class SignUpComponent {
     _shared_FormsHandler_FormsHandler__WEBPACK_IMPORTED_MODULE_0__["default"].validateForm(this.loginForm);
     if (this.loginForm.invalid) return;
     const saveData = this.loginForm.value;
-    saveData.project_id = '115G1WZI';
+    saveData.project_id = '1RN1RP';
     this.loading = true;
     this.formError = null;
     this.auth.signup(saveData).subscribe(v => {
@@ -4351,7 +4360,7 @@ class PubsubService {
   initConfigure() {
     const user = _storage_service__WEBPACK_IMPORTED_MODULE_0__.StorageService.getUserData();
     this.Client = new MVDOTOK.Client({
-      projectID: "115G1WZI",
+      projectID: "1RN1RP",
       host: `${user.messaging_server_map.complete_address}`
     });
     this.Client.Register(user.ref_id.toString(), user.authorization_token.toString());
@@ -4466,7 +4475,7 @@ class VdkM2MCallService {
   constructor() {}
   initConfigure() {
     this.Client = new CVDOTOK.ManyToMany({
-      projectId: "115G1WZI",
+      projectId: "1RN1RP",
       secret: "3d9686b635b15b5bc2d19800407609fa"
     });
     this.Client.on("connected", res => {
@@ -4475,25 +4484,25 @@ class VdkM2MCallService {
     });
   }
   groupCall(params) {
-    this.Client.GroupCall(params);
+    return this.Client.GroupCall(params);
   }
   joinGroupCall(params) {
-    this.Client.JoinGroupCall(params);
+    return this.Client.JoinGroupCall(params);
   }
   leaveGroupCall() {
     this.Client.LeaveGroupCall();
   }
-  setCameraOn() {
-    this.Client.SetCameraOn();
+  setCameraOn(uuid) {
+    this.Client.SetCameraOn(uuid);
   }
-  setCameraOff() {
-    this.Client.SetCameraOff();
+  setCameraOff(uuid) {
+    this.Client.SetCameraOff(uuid);
   }
-  setMicMute() {
-    this.Client.SetMicMute();
+  setMicMute(uuid) {
+    this.Client.SetMicMute(uuid);
   }
-  setMicUnmute() {
-    this.Client.SetMicUnmute();
+  setMicUnmute(uuid) {
+    this.Client.SetMicUnmute(uuid);
   }
   setParticipantVideo(participant, vidio) {
     this.Client.SetParticipantVideo(participant, vidio);
@@ -4528,8 +4537,8 @@ class VdkOne2OneCallService {
   initConfigure() {
     const user = _storage_service__WEBPACK_IMPORTED_MODULE_0__.StorageService.getUserData();
     this.Client = new CVDOTOK.Client({
-      projectId: "115G1WZI",
-      host: `wss://r-stun2.vdotok.dev:8443/call`,
+      projectId: "1RN1RP",
+      host: `${user.media_server_map.complete_address}`,
       stunServer: `${user.stun_server_map.complete_address}`
     });
     this.Client.on("connected", res => {
@@ -4541,13 +4550,13 @@ class VdkOne2OneCallService {
     // this.Client.Disconnect();
   }
   Call(params) {
-    this.Client.Call(params);
+    return this.Client.Call(params);
   }
   audioCall(params) {
-    this.Client.AudioCall(params);
+    return this.Client.AudioCall(params);
   }
   acceptCall(params) {
-    this.Client.AcceptCall(params);
+    return this.Client.AcceptCall(params);
   }
   rejectCall(from, val) {
     this.Client.RejectCall(from, val);
@@ -4558,20 +4567,20 @@ class VdkOne2OneCallService {
   cancelCall() {
     this.Client.CancelCall();
   }
-  setCameraOn() {
-    this.Client.SetCameraOn();
+  setCameraOn(uuid) {
+    this.Client.SetCameraOn(uuid);
   }
-  setCameraOff() {
-    this.Client.SetCameraOff();
+  setCameraOff(uuid) {
+    this.Client.SetCameraOff(uuid);
   }
-  setMicMute() {
-    this.Client.SetMicMute();
+  setMicMute(uuid) {
+    this.Client.SetMicMute(uuid);
   }
-  setMicUnmute() {
-    this.Client.SetMicUnmute();
+  setMicUnmute(uuid) {
+    this.Client.SetMicUnmute(uuid);
   }
   groupCall(params) {
-    this.Client.GroupCall(params);
+    return this.Client.GroupCall(params);
   }
   joinGroupCall(params) {
     this.Client.JoinGroupCall(params);
