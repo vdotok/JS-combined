@@ -1,6 +1,6 @@
 /*!
  * 
- *  VdoTok Call version 0.17.1
+ *  VdoTok Call version 0.17.2
  */
 window["CVDOTOK"] =
 /******/ (function(modules) { // webpackBootstrap
@@ -96,7 +96,7 @@ window["CVDOTOK"] =
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PeerM2M = exports.PhantomHelper = exports.ScreenSharingMobile = exports.Broadcast = exports.Confrence = exports.Client = exports.version = exports.name = void 0;
+exports.PhantomHelper = exports.ScreenSharingMobile = exports.Broadcast = exports.Confrence = exports.Client = exports.version = exports.name = void 0;
 /* eslint-disable prettier/prettier */
 // Helpful name and version exports
 const version_1 = __webpack_require__(1);
@@ -107,8 +107,6 @@ exports.name = name;
 // Export namespaced web
 const index_jsonrpc_1 = __webpack_require__(2);
 exports.Client = index_jsonrpc_1.default;
-const PeerM2M_1 = __webpack_require__(28);
-exports.PeerM2M = PeerM2M_1.default;
 const Conference_1 = __webpack_require__(29);
 exports.Confrence = Conference_1.default;
 const broadcast_1 = __webpack_require__(30);
@@ -155,7 +153,7 @@ const CommonHelper_1 = __webpack_require__(5);
 const StreamHelper_1 = __webpack_require__(13);
 const ScreenSharingMobile_1 = __webpack_require__(14);
 const WebRtcPeerHelper_1 = __webpack_require__(17);
-const PeerM2M_1 = __webpack_require__(28);
+const ManyToMany_1 = __webpack_require__(28);
 class Client extends events_1.EventEmitter {
     constructor(_Credentials) {
         super();
@@ -331,7 +329,8 @@ class Client extends events_1.EventEmitter {
                             mediaType: isVideoCall ? "video" : "audio",
                             isPeer: messageData.isPeer,
                             isInitiator: 0,
-                            call_state: "PENDING_ACCEPT"
+                            call_state: "PENDING_ACCEPT",
+                            participants: []
                         };
                     if (!(messageData.data && messageData.data.stateInfo)) {
                         if (!messageData.data) {
@@ -2142,22 +2141,23 @@ class Client extends events_1.EventEmitter {
     /////////////// MANY TO MANY CALLS
     GroupCall(params) {
         this.currentFromUser = this.currentUser;
-        let manyTomany = new PeerM2M_1.default(this);
+        let manyTomany = new ManyToMany_1.default(this);
         let uUID = new Date().getTime().toString();
         params.uUID = uUID;
         this.localVideos[uUID] = params.localVideo;
         this.manyToMany = manyTomany;
         this.isManyToMany = true;
-        this.sessionInfo[uUID] = { callType: "many_to_many", isPeer: params.isPeer || 0, isInitiator: 1, call_state: "STARTING" };
+        this.sessionInfo[uUID] = { callType: "many_to_many", isPeer: params.isPeer || 0, isInitiator: 1, call_state: "STARTING", participants: [] };
         return this.manyToMany.GroupCall(params);
     }
     JoinGroupCall(params) {
-        let manyTomany = new PeerM2M_1.default(this);
+        let manyTomany = new ManyToMany_1.default(this);
         manyTomany.callSession = this.callSession;
         manyTomany.mediaType = this.mediaType;
         this.manyToMany = manyTomany;
         this.mediaType = params.callType;
         this.localVideo = params.localVideo;
+        this.localVideos[this.callSession] = params.localVideo;
         this.isManyToMany = true;
         return this.manyToMany.JoinGroupCall(params, this.callSession);
     }
@@ -3673,8 +3673,13 @@ class SingleStreamHelper {
                 noiseSuppression: true,
             };
         }
-        if (video && this.videoStream && this.videoStream.active && this.currentStreamType === type && type === "camera") {
-            if ((audio && this.createdFromContext) || (audio && !this.audioStream.active)) {
+        if (video &&
+            this.videoStream &&
+            this.videoStream.active &&
+            this.currentStreamType === type &&
+            type === "camera") {
+            if ((audio && this.createdFromContext) ||
+                (audio && !this.audioStream.active)) {
                 this.audioStream = await navigator.mediaDevices.getUserMedia({ audio: options.audio });
             }
             return {
@@ -3683,7 +3688,11 @@ class SingleStreamHelper {
                 combine: this.getCombine()
             };
         }
-        if (audio && this.audioStream && this.audioStream.active && type === "audio") {
+        if (audio &&
+            this.audioStream &&
+            this.audioStream.active &&
+            type === "audio" &&
+            !this.createdFromContext) {
             return {
                 audio: this.audioStream,
                 video: this.videoStream,
@@ -27791,183 +27800,577 @@ module.exports = function arrayEquals(array) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const WebRtcPeerHelper_1 = __webpack_require__(17);
+/* eslint-disable prettier/prettier */
+/* prettier-ignore */
+/* eslint-disable */
+const events_1 = __webpack_require__(3);
 const EventHandler_1 = __webpack_require__(4);
-class PeerM2M {
+// register model for registering
+const RegisterModel_1 = __webpack_require__(8);
+// register event handler
+const RegisterEventHandler_1 = __webpack_require__(10);
+//call model for initiating a call
+const CallRequestModel_1 = __webpack_require__(11);
+const CommonHelper_1 = __webpack_require__(5);
+const WebRtcPeerHelper_1 = __webpack_require__(17);
+class ManyToMany extends events_1.EventEmitter {
     constructor(instance) {
-        this.isPeerCall = true;
+        super();
+        this.isPeerCall = false;
+        this.UUIDSessions = {};
+        this.UUIDSessionTypes = {};
+        this.UUIDSessionMediaTypes = {};
+        this.participants = {};
+        this.participantVideo = {};
+        this.callSession = "";
         this.participantsArray = [];
         this.mediaType = "";
-        this.callSession = "";
+        this.videoPlaying = 1;
+        this.audioPlaying = 1;
+        this.instance = {};
+        this.mcToken = instance.mcToken;
+        this.currentUser = instance.currentUser;
         this.instance = instance;
+        this.ws = instance.ws;
+        // this.Authentication(_Credentials);
     }
-    GroupCall(params) {
-        return new Promise(async (resolve, reject) => {
-            params.callType = "many_to_many";
-            params.isInitiator = 1;
-            params.isPeer = 1;
-            if (params.uUID) {
-                params.sessionUuid = params.uUID;
-            }
-            let options = {};
-            try {
-                options = await this.instance.createOptions(params, 1);
-                params = options.params;
-                this.callSession = params.uUID;
-                delete options.params;
-                if (options && !options.status) {
-                    throw options.message;
-                }
-            }
-            catch (e) {
-                this.instance.onErrorHandler();
-                return reject({ status: false, error: e });
-            }
-            if (options.localVideo) {
-                this.instance.localVideos[params.uUID] = options.localVideo;
-            }
-            if (options.receivers && options.receivers.length !== 0) {
-                console.log("@@@ new call current participant 0");
-                this.instance.sessionInfo[params.uUID]["participants"] = {};
-                options.receivers.forEach((part) => {
-                    console.log("single participant to call-->", part);
-                    this.manyToManyCallSingleParticipant(part, options, params)
-                        .then((result) => {
-                        console.log(result);
-                        console.log("@@@ call current participant", result);
-                        this.instance.sessionInfo[params.uUID]["participants"][result.participant] = {
-                            isInitiator: true,
-                            call_state: "STARTING",
-                            isPeer: 1,
-                            callType: "many_to_many",
-                            peerConnection: result.webRtcPeer,
-                        };
-                        if (options.receivers.length == Object.keys(this.instance.sessionInfo[params.uUID]["participants"]).length) {
-                            resolve(params.uUID);
-                        }
-                    })
-                        .catch((e) => {
-                        console.error(e);
-                    });
-                });
-            }
-            else {
-                reject({ status: false, message: "All Users are offline!" });
-            }
-        });
+    set McToken(token) {
+        this.mcToken = token;
     }
-    manyToManyCallSingleParticipant(participant, callOptions, callParams) {
-        return new Promise((resolve, reject) => {
-            const params = Object.assign({}, callParams);
-            let options = Object.assign({}, callOptions);
-            params.participants = options.receivers;
-            params.to = [participant];
-            options.onicecandidate = (candidate) => this.instance.onIceCandidate(candidate, params.uUID, participant);
-            options = this.instance.AddOnTrackHandler(options, params.uUID, participant);
-            const webRtcPeer = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerSendrecv(options, (error) => {
-                if (error) {
-                    this.instance.onErrorHandler();
-                    console.error(error);
-                    reject(error);
-                }
-                webRtcPeer.generateOffer((error, offerSdp) => {
-                    if (error) {
-                        console.error(error);
-                        reject(error);
-                        return;
-                    }
-                    this.instance.onOfferCall(error, offerSdp, this.instance.sessionInfo[params.uUID].mediaType, params.uUID, params);
-                    resolve({ participant, webRtcPeer });
-                });
-            });
-        });
+    get McToken() {
+        return this.mcToken;
+    }
+    Connect(mediaServer) {
+        var webSocketConnetion = new WebSocket(mediaServer);
+        webSocketConnetion.onmessage = (message) => {
+            var messageData = JSON.parse(message.data);
+            console.log('Received message: ', messageData);
+            switch (messageData.requestType) {
+                case 'register':
+                    RegisterEventHandler_1.default.SetRegisterResponse(messageData, this);
+                    break;
+                case 'call_response':
+                    console.log(' CallResponse: ', messageData);
+                    this.CallResponse(messageData);
+                    break;
+                case 'incoming_call':
+                    this.callSession = messageData.sessionUuid;
+                    this.mediaType = messageData.mediaType;
+                    console.log('incoming_call case: ', message);
+                    EventHandler_1.default.OnIncomingGroupCall(messageData, this);
+                    // this.incoming_call(messageData);
+                    break;
+                case 'start_communication':
+                    this.SessionStart(messageData);
+                    break;
+                case 'stopCommunication':
+                    console.info('Communication ended by remote peer', messageData);
+                    //EventHandler.SessionEnd(messageData,this);
+                    // this.DisposeWebrtc(true);
+                    break;
+                case 'ice_candidate':
+                    this.AddCandidate(messageData);
+                    break;
+                case 'session_invite':
+                    //EventHandler.SessionInvite(messageData,this);
+                    break;
+                case 'session_cancel':
+                    this.OnSessionCancel(messageData);
+                    console.log("===onParticipantOffer== exiting session_cancel", messageData, new Date().toLocaleTimeString());
+                    //EventHandler.SessionCancel(messageData,this);
+                    break;
+                /////////////////////////////////////////////
+                /////////  many to many events
+                case 'existing_participants':
+                    console.log("===onParticipantOffer== exiting", messageData, new Date().toLocaleTimeString());
+                    this.OnExistingParticipants(messageData);
+                    //EventHandler.SetExistingParticipants(messageData,this);
+                    break;
+                case 'new_participant_arrived':
+                    console.log("===onParticipantOffer== exiting new", messageData, new Date().toLocaleTimeString());
+                    this.OnNewParticipant(messageData);
+                    break;
+                case 'participantLeft':
+                    console.log("===onParticipantOffer== exiting left", messageData, new Date().toLocaleTimeString());
+                    this.OnParticipantLeft(messageData);
+                    break;
+                case 'state_information':
+                    console.log("===onParticipantOffer== exiting left", messageData, new Date().toLocaleTimeString());
+                    EventHandler_1.default.SetParticipantStatus(messageData, this);
+                    break;
+                //EventHandler.SetExistingParticipants(messageData,this);
+                ////////   end many to many events
+                ////////////////////////////////////////////
+                //this.DisposeWebrtc(true);
+                default:
+                // console.error('Unrecognized message', messageData);
+            }
+        };
+        webSocketConnetion.onclose = (res) => {
+            EventHandler_1.default.OnDisconnection(res, this);
+            console.log("OnClose socket==", res);
+        };
+        webSocketConnetion.onopen = (res) => {
+            EventHandler_1.default.OnConnection(res, this);
+            console.log("OnOpen socket==", res);
+        };
+        //   webSocketConnetion.onmessage=(res:any)=>{
+        // 	console.log("OnMessage socket==",res);
+        //   };
+        webSocketConnetion.onerror = (res) => {
+            EventHandler_1.default.OnDisconnection(res, this);
+            console.log("OnError socket==", res);
+        };
+        this.ws = webSocketConnetion;
+    }
+    SetParticipantStatus(messageData) {
+        EventHandler_1.default.SetParticipantStatus(messageData, this.instance);
     }
     AddCandidate(message) {
-        const participant = this.instance.getPeerById(message.sessionUuid, message.from);
-        console.log("Add Ice Candidate::::", message, participant);
-        if (participant) {
-            participant.addIceCandidate(message.candidate, (error) => {
+        console.log("Add Ice Candidate::::", message, this.participants[message.referenceId]);
+        if (this.participants[message.referenceId]) {
+            this.participants[message.referenceId].addIceCandidate(message.candidate, (error) => {
                 if (error) {
                     EventHandler_1.default.OnAddCandidate(error, this.instance);
-                    return console.error("Error adding candidate: " + error);
+                    return console.error('Error adding candidate: ' + error);
                 }
             });
         }
         else {
-            console.error("Participant not found for Add Ice Candidate::::", message, participant);
+            console.error("Participant not found for Add Ice Candidate::::", message, this.participants[message.referenceId]);
         }
     }
-    CallResponse(message) {
+    OnExistingParticipants(response) {
+        let refIDs = response.referenceIds;
+        let participantList = refIDs;
+        refIDs.forEach((ref) => {
+            if (ref != undefined) {
+                // this.participantsArray.push(ref);
+                // let video=this.ExistingParticipant(ref);
+                // participantList.push({referenceId:ref,stream:video.srcObject});
+                this.instance.emit("groupCall", { type: "NEW_PARTICIPANT", message: "New participant arrived.", participant: ref });
+            }
+        });
+        //	this.instance.emit("groupCall",{type:"PARTICIPANT_LIST",message:"Participant List is available",participant_list:participantList});
+    }
+    OnSessionCancel(response) {
+        let refID = response.referenceId;
+        this.instance.emit("groupCall", { type: "PARTICIPANT_LEFT", message: "Participant left.", participant: refID });
+        var participant = this.participants[refID];
+        this.participantsArray.splice(this.participantsArray.indexOf(refID), 1);
+        if (participant && participant != undefined) {
+            participant.dispose();
+        }
+        delete this.participants[refID];
+        delete this.participantVideo[refID];
+    }
+    OnNewParticipant(response) {
+        let refID = response.referenceId;
+        if (refID != undefined && this.participantsArray.indexOf(refID) == -1) {
+            //let video=this.ExistingParticipant(refID);
+            this.instance.emit("groupCall", { type: "NEW_PARTICIPANT", message: "New participant arrived.", participant: refID, uuid: response.sessionUuid });
+        }
+    }
+    OnParticipantLeft(response) {
+        let refID = response.referenceId;
+        this.instance.emit("groupCall", { type: "PARTICIPANT_LEFT", message: "Participant left.", participant: refID });
+        // var participant = this.participants[refID];
+        // this.participantsArray.splice(this.participantsArray.indexOf(refID),1);
+        // //participant.dispose();
+        // delete this.participants[refID];
+        // delete this.participantVideo[refID];
+    }
+    SetParticipantVideo(refId, partiVideo) {
         var _a, _b;
-        const participant = this.instance.getPeerById(message.sessionUuid, (_a = message.from) !== null && _a !== void 0 ? _a : message.referenceId);
-        console.info("CallResponse", participant, message);
-        if (message.response == "accepted" || (message.sdpType == "sdp_answer" && message.sdp)) {
-            participant.processAnswer((_b = message.sdpAnswer) !== null && _b !== void 0 ? _b : message.sdp, (error) => {
+        (0, CommonHelper_1.SetPlaysInline)(partiVideo);
+        let options = {
+            remoteVideo: partiVideo,
+            onicecandidate: (candidate) => {
+                this.OnParticipantIceCandidate(candidate, refId);
+            },
+            onerror: this.onError
+        };
+        let webRtcPeer = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerRecvonly(options, (error) => {
+            if (error) {
+                return console.error(error);
+            }
+            console.log("## Generating Offer in SEtParticipantVideo for remote video", refId);
+            webRtcPeer.generateOffer((error, offerSdp) => {
+                this.onParticipantOffer(error, offerSdp, refId);
+            });
+        });
+        this.participants[refId] = webRtcPeer;
+        if ((_b = (_a = this.instance.sessionInfo) === null || _a === void 0 ? void 0 : _a[this.callSession]) === null || _b === void 0 ? void 0 : _b["participants"]) {
+            this.instance.sessionInfo[this.callSession]["participants"][refId] = { peerConnection: webRtcPeer };
+        }
+        this.participantVideo[refId] = partiVideo;
+        return partiVideo;
+    }
+    ExistingParticipant(refId) {
+        var _a, _b, _c;
+        let partiVideo = document.createElement("video");
+        partiVideo.autoplay = true;
+        partiVideo.muted = true;
+        partiVideo.style.display = "none";
+        let options = {
+            remoteVideo: partiVideo,
+            onicecandidate: (candidate) => {
+                this.OnParticipantIceCandidate(candidate, refId);
+            },
+            onerror: this.onError
+        };
+        let webRtcPeer = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerRecvonly(options, (error) => {
+            if (error) {
+                return console.error(error);
+            }
+            console.log("## Generating Offer In Existing Participants remote video ", refId);
+            webRtcPeer.generateOffer((error, offerSdp) => {
+                this.onParticipantOffer(error, offerSdp, refId);
+            });
+        });
+        this.participants[refId] = webRtcPeer;
+        if ((_b = (_a = this.instance.sessionInfo) === null || _a === void 0 ? void 0 : _a[this.callSession]) === null || _b === void 0 ? void 0 : _b["participants"]) {
+            this.instance.sessionInfo[this.callSession]["participants"][refId] = { peerConnection: webRtcPeer };
+        }
+        this.participantVideo[refId] = partiVideo;
+        (_c = document.getElementById("hellofyou")) === null || _c === void 0 ? void 0 : _c.appendChild(partiVideo);
+        return partiVideo;
+    }
+    CallResponse(message) {
+        console.info('CallResponse', this.participants[message.referenceId], message);
+        if (message.response == 'accepted') {
+            console.log("## processing Answer for session : ", message.sessionUuid);
+            this.participants[message.referenceId].processAnswer(message.sdpAnswer, (error) => {
                 if (error) {
-                    EventHandler_1.default.SessionSDP(error, this.instance);
+                    EventHandler_1.default.SessionSDP(error, this);
                     return console.error(error);
                 }
             });
         }
     }
-    JoinGroupCall(params, uUID) {
-        console.log("@@@ new join call current participant 0");
-        this.instance.sessionInfo[uUID]["participants"] = {};
-        params.isPeer = 1;
-        params.callType = "many_to_many";
-        params.sdp = params.sdpOffer;
-        params.sessionUuid = params.uUID = uUID;
-        params.audio = 1;
-        params.video = this.instance.sessionInfo[uUID].mediaType == "video" ? 1 : 0;
-        params.isReInvite = 0;
-        return this.instance.AcceptCall(params);
-    }
-    OnExistingParticipants(response) {
-        const refIDs = response.referenceIds;
-        //let participantList: any=refIDs;
-        refIDs.forEach((ref) => {
-            var _a, _b, _c;
-            if (ref != undefined) {
-                let uUID = response.sessionUuid;
-                if (!((_c = (_b = (_a = this.instance.sessionInfo) === null || _a === void 0 ? void 0 : _a[uUID]) === null || _b === void 0 ? void 0 : _b["participants"]) === null || _c === void 0 ? void 0 : _c[ref])) {
-                    this.instance.Call({
-                        callType: "many_to_many",
-                        isPeer: 1,
-                        isInitiator: 1,
-                        to: ref,
-                        localVideo: this.instance.localVideos[uUID],
-                        video: this.instance.videoStatus[uUID],
-                        audio: this.instance.audioStatus[uUID],
-                        sessionUuid: uUID,
-                        uUID: uUID,
-                        requestType: "to_receive_stream",
-                    });
-                    //console.warn("Create Peer connection for", ref);
-                }
-                else {
-                    console.log("Call already connected with this peer", ref, this.instance.sessionInfo);
-                }
+    SessionStart(message) {
+        EventHandler_1.default.GroupSessionStart(message, this.instance);
+        console.log("## processing answer Start=Commm", message.referenceId, message.referenceId, this.participants[message.referenceId]);
+        this.participants[message.referenceId].processAnswer(message.sdpAnswer, (error) => {
+            if (error) {
+                EventHandler_1.default.SessionSDP(error, this);
+                return console.error(error);
             }
         });
     }
-    OnNewParticipant(response) {
-        //In Peer to Peer call this will be handled by REMOTE_STREAM Event
+    /*************
+   * Register user to SDK
+   */
+    Register(referenceId, authorizationToken) {
+        this.currentUser = referenceId;
+        let regMessage = new RegisterModel_1.default();
+        regMessage.requestId = new Date().getTime().toString();
+        regMessage.projectId = this.projectId;
+        regMessage.tenantId = this.projectId;
+        regMessage.referenceId = referenceId;
+        regMessage.authorizationToken = authorizationToken;
+        regMessage.SendRegisterRequest(this.ws);
     }
-    OnSessionCancel(response) {
-        let refID = response.referenceId;
-        this.instance.emit("groupCall", { type: "PARTICIPANT_LEFT", message: "Participant left.", participant: refID });
-        const participant = this.instance.getPeerById(response.sessionUuid, refID);
-        this.participantsArray.splice(this.participantsArray.indexOf(refID), 1);
-        if (participant) {
-            participant.dispose();
+    GroupCall(params) {
+        return new Promise((resolve, reject) => {
+            var _a, _b;
+            this.mediaType = params.callType;
+            this.to = Array.isArray(params.to) ? params.to : [params.to];
+            this.currentFromUser = this.currentUser;
+            this.localVideo = params.localVideo;
+            this.instance.to = this.to;
+            (0, CommonHelper_1.SetPlaysInline)(this.localVideo);
+            this.audioPlaying = 1;
+            this.videoPlaying = params.callType != "audio" ? 1 : 0;
+            let constraints = {
+                audio: true,
+                video: params.callType != "audio"
+                // video: {
+                //     mandatory: {
+                //         maxWidth: 320,
+                //         maxFrameRate: 15,
+                //         minFrameRate: 15
+                //     }
+                // }
+            };
+            var options = {
+                mediaConstraints: constraints,
+                localVideo: params.localVideo,
+                onicecandidate: (candidate) => {
+                    this.onIceCandidate(candidate, this.currentUser);
+                },
+                onerror: this.onError
+            };
+            let webRtcPeer = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerSendonly(options, (error) => {
+                if (error) {
+                    reject({ status: false, message: error.message ? error.message : error });
+                    return console.error(error);
+                }
+                console.log("## Generating Offer to send Local video", this.currentUser);
+                webRtcPeer.generateOffer((error, offerSdp) => {
+                    this.onManyToManyOfferCall(error, offerSdp, params.callType, params.uUID);
+                    if (error) {
+                        reject(error);
+                    }
+                    else {
+                        resolve(params.uUID);
+                    }
+                });
+            });
+            this.participants[this.currentUser] = webRtcPeer;
+            if ((_b = (_a = this.instance.sessionInfo) === null || _a === void 0 ? void 0 : _a[this.callSession]) === null || _b === void 0 ? void 0 : _b["participants"]) {
+                this.instance.sessionInfo[this.callSession]["participants"][this.currentUser] = { peerConnection: webRtcPeer };
+            }
+        });
+    }
+    JoinGroupCall(params, callSession) {
+        var _a, _b;
+        this.mediaType = params.callType;
+        this.localVideo = params.localVideo;
+        this.callSession = callSession;
+        (0, CommonHelper_1.SetPlaysInline)(this.localVideo);
+        let constraints = {
+            audio: true,
+            video: params.callType != "audio"
+            // video: {
+            //     mandatory: {
+            //         maxWidth: 320,
+            //         maxFrameRate: 15,
+            //         minFrameRate: 15
+            //     }
+            // }
+        };
+        var options = {
+            mediaConstraints: constraints,
+            localVideo: params.localVideo,
+            onicecandidate: (candidate) => {
+                this.onIceCandidate(candidate, this.currentUser);
+            },
+            onerror: this.onError
+        };
+        let webRtcPeer = WebRtcPeerHelper_1.WebRtcPeerHelper.WebRtcPeerSendonly(options, (error) => {
+            if (error) {
+                return console.error(error);
+            }
+            console.log("## Generating Offer in Join Group Call to send local video");
+            webRtcPeer.generateOffer((error, offerSdp) => {
+                this.onJoinManyToManyOfferCall(error, offerSdp, params.callType);
+            });
+        });
+        this.participants[this.currentUser] = webRtcPeer;
+        if ((_b = (_a = this.instance.sessionInfo) === null || _a === void 0 ? void 0 : _a[this.callSession]) === null || _b === void 0 ? void 0 : _b["participants"]) {
+            this.instance.sessionInfo[this.callSession]["participants"][this.currentUser] = { peerConnection: webRtcPeer };
         }
-        delete this.instance.sessionInfo[response.sessionUuid]["participants"][refID];
     }
-    SetParticipantVideo(refId, partiVideo) {
-        console.log("No need to handle this event as it is a peer 2 peer call and we will handle on existing participant");
+    /*********************************************************
+     *
+     *  Many One To Many Offer
+     *
+     *
+     *********************************************************/
+    /**
+     *
+     * @param error
+     * @param offerSdp
+     * @param mediaType
+     * @returns
+     */
+    onManyToManyOfferCall(error, offerSdp, mediaType, uUID) {
+        if (error) {
+            EventHandler_1.default.OnOfferIncomingCall(error, this);
+            return console.error('Error generating the call offer ', error);
+        }
+        this.callSession = uUID;
+        this.instance.callSession = uUID;
+        let callRequest = new CallRequestModel_1.default();
+        callRequest.from = this.currentUser;
+        callRequest.to = this.to;
+        callRequest.requestId = uUID;
+        callRequest.sessionUuid = uUID;
+        callRequest.mcToken = this.McToken;
+        callRequest.sdpOffer = offerSdp;
+        callRequest.mediaType = mediaType;
+        callRequest.callType = "many_to_many";
+        callRequest.SendCallRequest(this.ws);
+        console.log(' OnOfferCall :: :: ::', mediaType);
     }
-    SetParticipantStatus(messageData) {
-        EventHandler_1.default.SetParticipantStatus(messageData, this.instance);
+    onJoinManyToManyOfferCall(error, offerSdp, mediaType) {
+        if (error) {
+            EventHandler_1.default.OnOfferIncomingCall(error, this);
+            return console.error('Error generating the call offer ', error);
+        }
+        let uUID = new Date().getTime().toString();
+        let sessionUuid = this.callSession;
+        var message = {
+            from: this.currentUser,
+            sdpOffer: offerSdp,
+            // Custom Attributes
+            responseCode: 200,
+            responseMessage: "accepted",
+            requestType: "session_invite",
+            type: "request",
+            sessionType: "call",
+            callType: "many_to_many",
+            mediaType: mediaType,
+            requestId: uUID,
+            sessionUuid: this.callSession,
+            mcToken: this.mcToken
+        };
+        this.SendPacket(message);
+    }
+    onParticipantOffer(error, offerSdp, to) {
+        if (error) {
+            EventHandler_1.default.OnOfferIncomingCall(error, this);
+            return console.error('Error generating the call offer ', error);
+        }
+        let uUID = new Date().getTime().toString();
+        var message = {
+            from: this.currentUser,
+            to: to,
+            requestType: "to_receive_stream",
+            sdpOffer: offerSdp,
+            requestId: uUID,
+            type: "request",
+            sessionUuid: this.callSession,
+            mcToken: this.McToken
+        };
+        console.log("===onParticipantOffer==", message);
+        this.SendPacket(message);
+    }
+    DisposeWebrtc(status) {
+        for (var p in this.participants) {
+            let partiRTC = this.participants[p];
+            if (partiRTC && partiRTC != undefined) {
+                partiRTC.dispose();
+            }
+        }
+        this.participants = {};
+        this.participantVideo = {};
+        this.callSession = "";
+        this.participantsArray = [];
+    }
+    onError(error) {
+        EventHandler_1.default.OnRTCPeer(error, this);
+    }
+    onIceCandidate(candidate, referenceId) {
+        console.log("Local candidate" + JSON.stringify(candidate));
+        var message = {
+            requestType: 'ice_candidate',
+            candidate: candidate,
+            referenceId: referenceId,
+            sessionUuid: this.callSession
+        };
+        this.SendPacket(message);
+    }
+    SendPacket(message) {
+        var jsonMessage = JSON.stringify(message);
+        console.log('Sending message: ' + jsonMessage);
+        if (this.ws != undefined)
+            this.ws.send(jsonMessage);
+        else
+            EventHandler_1.default.OnAuthInitialError('', this);
+    }
+    /**
+     * EndCall
+     */
+    /***
+     *
+     * On Participant IceCandidate
+     *
+     */
+    OnParticipantIceCandidate(candidate, ref) {
+        var message = {
+            requestType: 'ice_candidate',
+            candidate: candidate,
+            referenceId: ref,
+            sessionUuid: this.callSession
+        };
+        this.SendPacket(message);
+    }
+    SetMicMute() {
+        if (this.localVideo && this.localVideo != undefined) {
+            let video = (this.mediaType == "video") ? 1 : 0;
+            this.audioPlaying = 0;
+            let state = {
+                "requestType": "state_information",
+                "type": "request",
+                "requestId": new Date().getTime().toString(),
+                "sessionUuid": this.callSession,
+                "mcToken": this.McToken,
+                "referenceId": this.currentUser,
+                "audioInformation": this.audioPlaying,
+                "videoInformation": this.videoPlaying
+            };
+            this.SendPacket(state);
+            if (this.localVideo.srcObject != null)
+                this.localVideo.srcObject.getAudioTracks()[0].enabled = false;
+            if (this.localVideo.localName == "audio")
+                this.localVideo.audioTracks[0].enabled = false;
+        }
+    }
+    /**
+     * SetMicMute
+     */
+    SetMicUnmute() {
+        if (this.localVideo && this.localVideo != undefined) {
+            let video = (this.mediaType == "video") ? 1 : 0;
+            this.audioPlaying = 1;
+            let state = {
+                "requestType": "state_information",
+                "type": "request",
+                "requestId": new Date().getTime().toString(),
+                "sessionUuid": this.callSession,
+                "mcToken": this.McToken,
+                "referenceId": this.currentUser,
+                "audioInformation": this.audioPlaying,
+                "videoInformation": this.videoPlaying
+            };
+            this.SendPacket(state);
+            if (this.localVideo.srcObject != null)
+                this.localVideo.srcObject.getAudioTracks()[0].enabled = true;
+            if (this.localVideo.localName == "audio")
+                this.localVideo.audioTracks[0].enabled = true;
+        }
+    }
+    /**
+     * SetCameraOn
+     */
+    SetCameraOn() {
+        if (this.localVideo && this.localVideo != undefined) {
+            this.videoPlaying = 1;
+            let state = {
+                "requestType": "state_information",
+                "type": "request",
+                "requestId": new Date().getTime().toString(),
+                "sessionUuid": this.callSession,
+                "mcToken": this.McToken,
+                "referenceId": this.currentUser,
+                "audioInformation": this.audioPlaying,
+                "videoInformation": this.videoPlaying
+            };
+            this.SendPacket(state);
+            this.localVideo.srcObject.getVideoTracks()[0].enabled = true;
+        }
+    }
+    /**
+     * SetCameraOff
+     */
+    SetCameraOff() {
+        if (this.localVideo && this.localVideo != undefined) {
+            this.videoPlaying = 0;
+            let state = {
+                "requestType": "state_information",
+                "type": "request",
+                "requestId": new Date().getTime().toString(),
+                "sessionUuid": this.callSession,
+                "mcToken": this.McToken,
+                "referenceId": this.currentUser,
+                "audioInformation": this.audioPlaying,
+                "videoInformation": this.videoPlaying
+            };
+            this.SendPacket(state);
+            this.localVideo.srcObject.getVideoTracks()[0].enabled = false;
+        }
     }
     LeaveGroupCall() {
         let response = {
@@ -27975,13 +28378,25 @@ class PeerM2M {
             "requestType": "session_cancel",
             "requestId": new Date().getTime().toString(),
             "sessionUuid": this.callSession,
-            "mcToken": this.instance.McToken
+            "mcToken": this.McToken
         };
-        this.instance.SendPacket(response);
-        this.instance.DisposeWebrtc(false);
+        this.SendPacket(response);
+        this.DisposeWebrtc(false);
+    }
+    CancelCall() {
+        let from = this.currentFromUser;
+        let response = {
+            "type": "request",
+            "requestType": "session_cancel",
+            "requestId": new Date().getTime().toString(),
+            "sessionUuid": this.UUIDSessions[from],
+            "mcToken": this.McToken
+        };
+        this.SendPacket(response);
+        this.DisposeWebrtc(false);
     }
 }
-exports.default = PeerM2M;
+exports.default = ManyToMany;
 
 
 /***/ }),
