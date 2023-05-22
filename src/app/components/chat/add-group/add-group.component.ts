@@ -203,7 +203,7 @@ export class AddGroupComponent implements OnInit {
             from: StorageService.getUserData().ref_id,
             to: participants_ref_ids,
             action: "new",
-            groupModel: v.group 
+            groupModel: v
           };
           console.log("$$ ** M2M = notification send on M2M group creation :\n\n", groupInfo);
           this.pubsubService.sendNotificationOnGroupUpdation(groupInfo);

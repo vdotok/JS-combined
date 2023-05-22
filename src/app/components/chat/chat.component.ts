@@ -265,13 +265,15 @@ export class ChatComponent implements OnInit {
     });
 
     this.pubsubService.Client.on("message", response => {
-      console.log("** on-message response: \n\n", response);
+      console.log("$$$$ ** on-message response: \n\n", response);
       response = JSON.parse(JSON.stringify(response));
       //console.trace("new message", response);
       if (response.data) {
         this.updateGroup(response);
       } 
       if (response.type == 'text' || response.type == 'file' || response.type == 'image' || response.type == 'audio' || response.type == 'video') {
+        console.log("$$$$ msg ni show horA: ", this);
+        
         this.scroll();
         const chatthread = this.findChatThread(response.to);
         const isActiveThread = chatthread.id == this.activeChat.id;
@@ -336,45 +338,51 @@ export class ChatComponent implements OnInit {
   }
 
   updateGroup(grp_info) {
-    //console.log("** in update group function \n\n");
-    let new_group = grp_info.data.groupModel;
+    let new_group = grp_info.data.groupModel.group;
+    console.log("$$$$ in update group function \n\n", {grp_info}, {new_group});
+
     // return;
     if(grp_info.data.action == "new") {
-      let chat = grp_info.data.groupModel;
-      let subscribedata = {
-        key: chat.channel_key,
-        channel: chat.channel_name,
-      };
-      let data = [];
-      data.push(subscribedata);
-      this.pubsubService.subscribeToChat(data);
-      console.log("!!!!!! grp", subscribedata);
+      let i = this.AllGroups.findIndex((grp)=> grp.channel_name == new_group.channel_name);
 
-      //this.pubsubService.subscribeToChat(data);
-      if (chat['participants'].length) {
-        chat['participants'] = chat['participants'].map(r => {
+      if (i === -1) {
+        let chat = grp_info.data.groupModel.group;
+        let subscribedata = {
+          key: chat.channel_key,
+          channel: chat.channel_name,
+        };
+        let data = [];
+        data.push(subscribedata);
+        this.pubsubService.subscribeToChat(data);
+        console.log("!!!!!! grp", subscribedata);
+
+        //this.pubsubService.subscribeToChat(data);
+        if (chat['participants'].length) {
+          chat['participants'] = chat['participants'].map(r => {
           r['username'] = r['username'] || r['full_name'];
           return r;
         });
-      }
-      chat['chatTitle'] = chat.auto_created ? chat['participants'][0]['full_name'] : chat.group_title;
-      chat['Online'] = false;
-      chat['key'] = chat.channel_key;
-      chat['channel'] = chat.channel_name;
-      chat['chatHistory'] = [];
-      chat['TotalParticipants'] = chat['participants'].length;
-      chat['onlineParticipants'] = 1;
-      chat['isSeen'] = true;
-      console.log("!!! final grp before pushing: \n\n",this,"\n", chat, "\n\n" ,this.AllGroups);
+        }
+        chat['chatTitle'] = chat.auto_created ? chat['participants'][0]['full_name'] : chat.group_title;
+        chat['Online'] = false;
+        chat['key'] = chat.channel_key;
+        chat['channel'] = chat.channel_name;
+        chat['chatHistory'] = [];
+        chat['TotalParticipants'] = chat['participants'].length;
+        chat['onlineParticipants'] = 1;
+        chat['isSeen'] = true;
+        console.log("!!! final grp before pushing: \n\n",this,"\n", chat, "\n\n" ,this.AllGroups);
       
-      this.AllGroups.push(chat);
-      // this.setActiveChat(chat);
-      this.changeEvent.emit("THREAD");
-      //chat.clicked_item = "chat";
-      this.setActiveChatt.emit(chat);
-      this.loading = false;
+        this.AllGroups.push(chat);
+        // this.setActiveChat(chat);
+        this.changeEvent.emit("THREAD");
+        //chat.clicked_item = "chat";
+        this.setActiveChatt.emit(chat);
+        this.loading = false;
 
-      // console.log("** group added successfully\n", grp_info, "\n");  //{new_group}, {index}, this.AllGroups   
+        // console.log("** group added successfully\n", grp_info, "\n");  //{new_group}, {index}, this.AllGroups
+      }
+         
     }
 
 
@@ -396,8 +404,8 @@ export class ChatComponent implements OnInit {
       let grp_ind = this.AllGroups.findIndex((g)=> g.channel_name === g.channel_name);  
       // console.log("*** edit notification:\n", new_group, "\n", this.AllGroups, "\n");
       if(grp_ind > -1) {
-        this.AllGroups[grp_ind].group_title = new_group.group.group_title;
-        this.AllGroups[grp_ind].chatTitle = new_group.group.group_title; 
+        this.AllGroups[grp_ind].group_title = new_group.group_title;
+        this.AllGroups[grp_ind].chatTitle = new_group.group_title; 
         //console.log("*** edit notification:\n", new_group, "\n", this.AllGroups, "\n",new_group.group.group_title);
       }
       
@@ -415,8 +423,17 @@ export class ChatComponent implements OnInit {
     const playload = this.groupForm.value;
     this.loading = true;
     this.svc.post('RenameGroup', playload).subscribe(v => {
+      
       if (v && v.status == 200) {
-        this.getAllGroups();
+        //this.getAllGroups(); //Commented this on 22-May-23 because chat history removed when rename group called
+
+        if(this.activeChat.group_id === playload.group_id && this.activeChat.auto_created === 0) {
+          console.log("&& rename group api calleds", this.activeChat, playload);
+          this.activeChat.group_title = playload.group_title;
+          this.activeChat.chatTitle = playload.group_title;
+        }
+
+
 
         //ABM
         let participants_ref_ids = [];
@@ -430,7 +447,7 @@ export class ChatComponent implements OnInit {
           groupModel: v
           
         };
-        //console.log("*** edit grppp  -sending side:\n", groupInfo, "/n", v);
+        console.log("TT *** edit grppp  -sending side:\n", groupInfo, "/nAPI response:", v);
         this.pubsubService.sendNotificationOnGroupUpdation(groupInfo);
         //ABM
 
@@ -462,7 +479,7 @@ export class ChatComponent implements OnInit {
           action: "delete",
           groupModel: v
         };
-        // console.log("** delete group: ", groupInfo, group);
+        //console.log("TT ** delete group: ", groupInfo, group);
         this.pubsubService.sendNotificationOnGroupUpdation(groupInfo);
         //ABM
 

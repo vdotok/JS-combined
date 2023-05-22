@@ -129,7 +129,7 @@ export class NewChatComponent implements OnInit {
           from: StorageService.getUserData().ref_id,
           to: [user.ref_id],
           action: "new",
-          groupModel: v.group
+          groupModel: v
           
         };
         console.log("** notification send on group creation :\n\n", groupInfo, "\n\n\n\n", v, "\n",val);
