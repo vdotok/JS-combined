@@ -284,7 +284,7 @@ class Client extends events_1.EventEmitter {
         this.cleanIntervals();
         this.ws.onmessage = (message) => {
             var messageData = JSON.parse(message.data);
-            console.log('Received message: ', messageData);
+            // console.log('Received message: ', messageData);
             switch (messageData.requestType) {
                 case 'register':
                     if (messageData.responseCode == 200) {
@@ -1998,7 +1998,7 @@ class Client extends events_1.EventEmitter {
             }*/
             if (!pingCount || true) {
                 this.sendStateRPC({}, -1, 0, 'ping');
-                console.log("SDK Ping sent!");
+                // console.log("SDK Ping sent!");
             }
         }
         catch (e) {
