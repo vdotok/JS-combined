@@ -4,7 +4,7 @@ This is a demo project to demonstrate “Combine app” using Angular 9+.
 
 ## Live Demo
 
-Click <a href="https://combined.vdotok.com" target="_blank" title="Combine App Demo">here</a> to visit the live demo of VdoTok Vdotok JS Combine App.
+Click <a href="https://combined.vdotok.com" target="_blank" title="Combine App Demo">here</a> to visit the live demo of Vdotok JS Combine App.
 
 ## Prerequisites:
 
