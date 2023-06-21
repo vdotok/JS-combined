@@ -1,5 +1,6 @@
 import { Injectable, Output } from '@angular/core';
 import { StorageService } from './storage.service';
+import { PROJECT_ID } from 'src/constants/const';
 declare const CVDOTOK: any;
 
 @Injectable()
@@ -10,7 +11,7 @@ export class VdkOne2OneCallService {
   public initConfigure(): void {
     const user = StorageService.getUserData();
     this.Client = new CVDOTOK.Client({
-      projectId: "1RN1RP",//115G1WZI",
+      projectId: PROJECT_ID,
       host: `wss://r-stun2.vdotok.dev:8443/call`,
       stunServer: `${user.stun_server_map.complete_address}`
     });

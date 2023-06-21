@@ -1,5 +1,6 @@
 import { Injectable, Output } from '@angular/core';
 import { StorageService } from './storage.service';
+import { PROJECT_ID } from 'src/constants/const';
 declare const CVDOTOK: any;
 
 @Injectable()
@@ -9,7 +10,7 @@ export class VdkM2MCallService {
 
   public initConfigure(): void {
     this.Client = new CVDOTOK.ManyToMany({
-      projectId: "1RN1RP",//115G1WZI",
+      projectId: PROJECT_ID,
       secret: "3d9686b635b15b5bc2d19800407609fa",
     });
     this.Client.on("connected", (res) => {

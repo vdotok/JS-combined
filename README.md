@@ -1,145 +1,156 @@
-# Vdotok QuickStart Source for chat messaging Demo
+# Vdotok JS Combine App (Messaging and Audio/Video Call)
 
-This is a demo project to demonstrate “Chat” using Angular 9+.
+This is a demo project to demonstrate “Combine app” using Angular 9+.
 
 ## Live Demo
 
-Click <a href="https://combined.vdotok.com" target="_blank" title="Chat Demo">here</a> to visit the live demo of VdoTok JS WebApp.
+Click <a href="https://combined.vdotok.com" target="_blank" title="Combine App Demo">here</a> to visit the live demo of VdoTok Vdotok JS Combine App.
 
-## Prerequisites
+## Prerequisites:
 
-- Node v4.x.x or later
-- npm v3.x.x or later
+- Node v16.x.x or later
+- npm v7.x.x or later
 - git version any
 
-To verify the version of Node and npm, open **Terminal/Console** window and run `node -v` and `npm –v`. Older versions produce errors.
-Click <a href="https://docs.npmjs.com/getting-started/installing-node" target="_blank">here</a> to download and install the latest versions of Node and npm  
-We recommend [nvm](https://github.com/creationix/nvm) for managing multiple versions of node and npm.
+To verify the version of Node and npm, open **Terminal/Console** window and run `node -v` and `npm –v`. Old versions produce errors.
+
+Click <a href="https://docs.npmjs.com/downloading-and-installing-node-js-and-npm" target="_blank">here</a> to download and install the latest versions of Node and npm.
+
+Click <a href="https://git-scm.com/downloads" target="_blank">here</a> to download and install the latest versions of git .
+
+We recommend <a href="https://github.com/nvm-sh/nvm" target="_blank">nvm </a> for managing multiple versions of node and npm.
 
 <br/>
 
-## Sign up to get credentials i.e Project ID, Authentication Token.
-
-## Setting up the Local Environment:
+## Setting up the local environment
 
 To install Angular on your local system, you need the following:
 
 ### Node
 
-Angular requires an active LTS or maintenance LTS version of Node. For more information on installing Node, see <a href="https://nodejs.org/en/" target="_blank">nodejs.org</a>. If you are unsure what version of Node runs on your system, run `node -v` in a **Terminal** window.
+Angular requires an active LTS or maintenance LTS version of Node. For more information on installing Node, see <a href="https://nodejs.org">nodejs.org</a>. If you are unsure what version of Node runs on your system, run `node -v` in a **Terminal** window.
 
-### npm Package Manager
+### npm package manager
 
-Angular, the Angular CLI, and Angular applications depend npm packages on <a href="https://docs.npmjs.com/about-npm" target="_blank">npm packages</a> for many features and functions. To download and install npm packages, you need an npm Package Manager. This guide uses the npm client command line interface, which is installed with Node by default. To check that you have the npm client installed, run `npm -v` in a terminal window.
+Angular, the Angular CLI, and Angular applications depend on <a href="https://docs.npmjs.com/getting-started/what-is-npm">npm packages</a> for various features and functions. To download and install npm packages, you need an npm Package Manager. This guide uses the npm client command line interface, which is installed with Node by default. To check that you have the npm client installed, run `npm -v` in a terminal window.
 
 <br/>
 
 ## Install the Angular CLI
 
-You can use the Angular CLI to create projects, generate application and library code, and perform a variety of ongoing development tasks such as testing, bundling, and deployment.
+The Angular CLI is used to create projects, generate application and library code, and perform a variety of ongoing development tasks such as testing, bundling, and deployment.
 
 > To install the Angular CLI, open a terminal window (ctrl + shift + c) and run the following command:
 
 ```shell
-   npm install –g @angular/cli
+   npm install -g @angular/cli
 ```
 
-Visit <a href="https://angular.io/guide/setup-local" target="_blank">Angular Setup</a> for more information.
+You can also visit <a href="https://angular.io/guide/setup-local" target="_blank">Angular Setup</a> for more information.
 
 <br/>
+
 
 ## Clone Repo
 
-- Clone this **Repository URL** into new project folder (e.g., my-proj).
+- Clone this **Repository URL** into new Project folder (e.g., my-proj).
 
 ```shell
     git clone https://github.com/vdotok/JS-combined.git
-    cd my-proj
 ```
 
-Register at <a href="https://userpanel.vdotok.com/overview" target="_blank">VdoTok</a> to get **Authentication Token** and **Project ID**.
 
-1. Click on this link -> https://vdotok.com/ in Chrome.
+- Move from your current directory i-e, **my-proj** to the **JS-combined** directory.
 
-![My Remote Image](https://user-images.githubusercontent.com/87179594/184070841-f9b91f46-93df-4047-acfb-4739fd207aaa.jpg)
+```shell
+    cd JS-combined
+```
 
-2. This will navigate to Sign Up page, where the User is required to enter the following information: First Name > Last Name > Email > Country > Password. Select Sign Up For Free button
+</br>
+
+
+
+## Sign up to get credentials i.e Project ID, and API URL.
+
+Register at <a href="https://vdotok.com" target="_blank">VdoTok</a> to get **Project ID** and **API URL**, by following the below steps:
+
+1. Click on this link -> <a href="https://vdotok.com" target="_blank">https://vdotok.com</a> in your browser.
+
+<img width="1721" alt="SignupOnVdotok" src="https://github.com/vdotok/JS-combined/assets/134290022/4dea2ebf-4b00-409e-b2c1-05d30ed8aaa6">
+
+
+2. Click on the "TRY FOR FREE" button, this will navigate to Sign Up page, where the User is required to enter the following information: First Name > Last Name > Email > Country > Password. Select Sign Up For Free button
+
 
 ![My Remote Image](https://user-images.githubusercontent.com/87179594/184070989-e8b26d85-6e64-4ef3-b6d7-56449738236c.jpg)
 
-3. After successfully sign up User navigates to the main dashboad of VDOTOK. Where user can find the ProjectID and Api Key.
+3. After successfully signing up with VdoTok, the user navigates to the main Dashboad of VDOTOK where the user can find the ProjectID, and Api url.
+
+
+4. The User can replace the existing ProjectID with their own ProjectID, as shown in the point # 2 in the below screen.
 
 ![My Remote Image](https://user-images.githubusercontent.com/87179594/184071060-9909513b-f880-4de8-9481-6ab91ae2be95.jpg)
 
-#### After successful registration, you can update the existing projectID with your own projectID.
 
 <br/>
 
-## Add PROJECT ID and AUTHENTICATION Token.
+<br/>
 
-- For messaging in combined application, You can update the projectID following these steps. ( JS-COMBINED -> src -> app -> shared -> services -> pubsub.service.ts ).
-- For Many to Many call in combined application, you can update the ProjectID by following these steps. ( JS-COMBINED -> src -> app -> shared -> services -> vdk.m2m-call.service.ts ).
-- For One to One call in combined application, you can update the ProjectID by following these steps. ( JS-COMBINED -> src -> app -> shared -> services -> vdk.one2one-call.service.ts ).
+## Add PROJECT ID and API URL.
 
-You have to Update Project_id at the Login and Signup request by following these steps.
+To integrate messaging and audio/video calls with JS SDKs, the user can update the projectID by following these steps:
 
-- At Login request. ( JS-COMBINED -> src -> app -> components -> login -> login.component.ts )
-- At Signup request. ( JS-COMBINED -> src -> app -> components -> sign-up -> sign-up.component.ts )
-  After replacing the projectID at all the above places, compile and run the project.
+- Go to the file ( JS-COMBINED -> src -> constants -> const.ts ).
+
+- Replace the **PROJECT_ID** constant with your project ID.
+
 
 ### Base URL
 
-You have to update BaseUrl with your own apiBaseUrl. You can update **apiBaseUrl** by following these steps.
+The user is required to update API-Base-URL with their own base URL. This can be done by following these steps:
 
-- In environment.prod.ts File, (JS-COMBINED -> src -> environments -> environment.prod.ts)
-- In environment.ts File, (JS-COMBINED -> src -> environments -> environment.ts)
+- Go to environment.prod.ts file, ( JS-COMBINED -> src -> environments -> environment.prod.ts ), and replace the **apiBaseUrl** with your BaseUrl
 
-## Install npm Packages:
+- Go to environment.ts file, ( JS-COMBINED -> src -> environments -> environment.ts ), and replace the **apiBaseUrl** with your BaseUrl
+
+</br>
+
+
+## Install npm packages
 
 Please refer to the above-stated npm and nvm version notes.
 
-- Install the npm packages described in the `package.json` and verify that it works:
+- Run the following command to install all the dependencies:
 
 ```shell
-    npm install
-    ng serve
+  npm install
 ```
 
-- Open browser, the application is running at: **http://localhost:4200**
+- Now run the following command to run the project:
+
+```shell
+  ng serve
+```
+
+- Open your browser, your application is running at **http://localhost:4200**
+
 - Create **New Account** using Sign-up Form, and use the application
 
-### How to Generate and Install Build:
+</br>
 
-Follow the commands below to generate a “build”
 
-```shell
-    ng build
-    ng build --aot --configuration production --build-optimizer --outputHashing=all
-```
+## How to Generate Build:
 
-### How to Configure SDK:
-
-Add SDK into your index.html file. Declare a variable for your component or service:
-`declare const MVDOTOK: any;`
-
-User provides config to initiate the SDK
+Run the below command to generate a “build”: 
 
 ```shell
-    const Client = new MVDOTOK.Client({
-      projectID: "****",
-      secret: "********************",
-    });
-    Client.on("authenticated", (res) => {
-      let user = StorageService.getUserData();
-      this.Client.Register(user.ref_id.toString(), user.authorization_token.toString());
-    });
+  npm run build
 ```
 
-After Successful configuation, you can run the projcet locally by using this command.
+</br>
 
-```shell
-    npm start or
-    ng serve
-```
+## Integrate SDK in your project:
 
-Now open the browser and you can see the application at http://localhost:4200
+To setup messaging and audio/video call in your project, please follow the detailed documentation here.
+
+Click on this link -> <a href = "https://doc.vdotok.com/" target = "_blank"> https://doc.vdotok.com/</a>

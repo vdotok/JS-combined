@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy, Output } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { StorageService } from './storage.service';
+import { PROJECT_ID } from 'src/constants/const';
 declare const MVDOTOK: any;
 
 @Injectable()
@@ -18,7 +19,7 @@ export class PubsubService implements OnDestroy {
   public initConfigure(): void {
     const user = StorageService.getUserData();
     this.Client = new MVDOTOK.Client({
-      projectID: "1RN1RP",//"115G1WZI",
+      projectID: PROJECT_ID,
       host: `${user.messaging_server_map.complete_address}`
     });
     this.Client.Register(user.ref_id.toString(), user.authorization_token.toString());
