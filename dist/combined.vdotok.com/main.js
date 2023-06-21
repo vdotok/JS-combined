@@ -3440,7 +3440,7 @@ class LoginComponent {
     _shared_FormsHandler_FormsHandler__WEBPACK_IMPORTED_MODULE_1__["default"].validateForm(this.loginForm);
     if (this.loginForm.invalid) return;
     const saveData = this.loginForm.value;
-    saveData.project_id = '1RN1RP';
+    saveData.project_id = '1KMMRG';
     this.loading = true;
     this.formError = null;
     this.auth.login(saveData).subscribe(v => {
@@ -3576,7 +3576,7 @@ class SignUpComponent {
     _shared_FormsHandler_FormsHandler__WEBPACK_IMPORTED_MODULE_0__["default"].validateForm(this.loginForm);
     if (this.loginForm.invalid) return;
     const saveData = this.loginForm.value;
-    saveData.project_id = '1RN1RP';
+    saveData.project_id = '1KMMRG';
     this.loading = true;
     this.formError = null;
     this.auth.signup(saveData).subscribe(v => {
@@ -4360,7 +4360,7 @@ class PubsubService {
   initConfigure() {
     const user = _storage_service__WEBPACK_IMPORTED_MODULE_0__.StorageService.getUserData();
     this.Client = new MVDOTOK.Client({
-      projectID: "1RN1RP",
+      projectID: "1KMMRG",
       host: `${user.messaging_server_map.complete_address}`
     });
     this.Client.Register(user.ref_id.toString(), user.authorization_token.toString());
@@ -4475,7 +4475,7 @@ class VdkM2MCallService {
   constructor() {}
   initConfigure() {
     this.Client = new CVDOTOK.ManyToMany({
-      projectId: "1RN1RP",
+      projectId: "1KMMRG",
       secret: "3d9686b635b15b5bc2d19800407609fa"
     });
     this.Client.on("connected", res => {
@@ -4537,7 +4537,7 @@ class VdkOne2OneCallService {
   initConfigure() {
     const user = _storage_service__WEBPACK_IMPORTED_MODULE_0__.StorageService.getUserData();
     this.Client = new CVDOTOK.Client({
-      projectId: "1RN1RP",
+      projectId: "1KMMRG",
       host: `${user.media_server_map.complete_address}`,
       stunServer: `${user.stun_server_map.complete_address}`
     });
